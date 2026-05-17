@@ -1,13 +1,14 @@
 import { Logger } from '../logger';
 import { Component } from '../component';
 import { html, escapeHTML, rawHtml } from '../html';
-import { Media, ActivitySummary, Milestone, updateMedia, deleteMedia, getSetting, getMilestones, addMilestone, updateMilestone, deleteMilestone, clearMilestones, getLogsForMedia, readFileBytes, downloadAndSaveImage } from '../api';
+import { Media, ActivitySummary, Milestone, updateMedia, deleteMedia, getSetting, getMilestones, addMilestone, updateMilestone, deleteMilestone, clearMilestones, getLogsForMedia, downloadAndSaveImage } from '../api';
 import { customAlert, customConfirm, customPrompt } from '../modal_base';
 import { showLogActivityModal } from '../activity_modal';
 import { showAddMilestoneModal } from '../milestone_modal';
 import { showJitenSearchModal, showImportMergeModal } from './modal';
 import { isValidImporterUrl, fetchMetadataForUrl } from '../importers';
 import { getServices } from '../services';
+import { MediaCoverLoader } from './cover_loader';
 import { pushBackHandler } from '../back_stack';
 import { MediaLog } from './MediaLog';
 import { setupCopyButton } from '../clipboard';
@@ -55,7 +56,13 @@ export class MediaDetail extends Component<MediaDetailState> {
     }
 
     constructor(container: HTMLElement, media: Media, logs: ActivitySummary[], mediaList: Media[], currentIndex: number, callbacks: { onBack: () => void, onBackToLibrary: () => void, onNext: () => void, onPrev: () => void, onNavigate: (index: number) => void, onDelete: () => void }) {
-        super(container, { media, logs, milestones: [], imgSrc: null, isDescriptionExpanded: false });
+        super(container, {
+            media,
+            logs,
+            milestones: [],
+            imgSrc: media.cover_image ? MediaCoverLoader.getCached(media.cover_image) : null,
+            isDescriptionExpanded: false
+        });
         this.mediaList = mediaList;
         this.currentIndex = currentIndex;
         this.onBack = callbacks.onBack;
@@ -112,22 +119,102 @@ export class MediaDetail extends Component<MediaDetailState> {
             return;
         }
 
-        let src: string | null;
-        if (getServices().isDesktop()) {
-            const bytes = await readFileBytes(cover_image);
-            const blob = new Blob([new Uint8Array(bytes)]);
-            src = URL.createObjectURL(blob);
-            this.revokeCurrentObjectUrl();
-            this.currentObjectUrl = src;
-        } else {
-            src = await getServices().loadCoverImage(cover_image);
+        const cached = MediaCoverLoader.getCached(cover_image);
+        if (cached) {
+            if (this.state.imgSrc !== cached) {
+                this.updateCoverImage(cached);
+            }
+            return;
         }
-        if (src && !this.isDestroyed) this.setState({ imgSrc: src });
+
+        const src = await MediaCoverLoader.load(cover_image, {
+            cache: false,
+            useCache: false,
+        });
+        if (!src) return;
+        if (this.isDestroyed) {
+            MediaCoverLoader.revokeIfObjectUrl(src);
+            return;
+        }
+
+        if (getServices().isDesktop()) {
+            await this.applyDesktopImageSource(src);
+            return;
+        }
+
+        this.applyWebImageSource(src);
+    }
+
+    private async applyDesktopImageSource(src: string) {
+        await this.preloadImageSource(src);
+        if (this.isDestroyed) {
+            MediaCoverLoader.revokeIfObjectUrl(src);
+            return;
+        }
+
+        const previousObjectUrl = this.currentObjectUrl;
+        this.currentObjectUrl = src;
+        if (this.state.imgSrc !== src) {
+            this.updateCoverImage(src);
+        }
+        MediaCoverLoader.revokeIfObjectUrl(previousObjectUrl);
+    }
+
+    private applyWebImageSource(src: string) {
+        if (!this.state.imgSrc) {
+            this.updateCoverImage(src);
+            return;
+        }
+
+        const img = new Image();
+        img.onload = () => {
+            if (!this.isDestroyed && this.state.imgSrc !== src) {
+                this.updateCoverImage(src);
+            }
+        };
+        img.src = src;
+    }
+
+    private preloadImageSource(src: string): Promise<void> {
+        return new Promise((resolve) => {
+            const image = new Image();
+            image.onload = () => resolve();
+            image.onerror = () => resolve();
+            image.src = src;
+            if (typeof image.decode === 'function') {
+                image.decode().then(resolve).catch(resolve);
+            }
+        });
+    }
+
+    private updateCoverImage(src: string) {
+        this.state.imgSrc = src;
+
+        const current = this.container.querySelector<HTMLElement>('#media-cover-img');
+        if (!current) {
+            this.render();
+            return;
+        }
+
+        if (current instanceof HTMLImageElement) {
+            current.src = src;
+            return;
+        }
+
+        const image = document.createElement('img');
+        image.src = src;
+        image.id = 'media-cover-img';
+        image.alt = 'Cover';
+        image.title = 'Double click to change image';
+        image.style.cssText = 'width: 100%; aspect-ratio: 2/3; object-fit: cover; border-radius: var(--radius-md); cursor: pointer; opacity: 1; transition: opacity 0.2s ease-out;';
+        current.replaceWith(image);
+        this.attachCoverUploadListener(image);
+        this.adjustDesktopCoverSize();
     }
 
     private revokeCurrentObjectUrl() {
         if (!this.currentObjectUrl) return;
-        URL.revokeObjectURL(this.currentObjectUrl);
+        MediaCoverLoader.revokeIfObjectUrl(this.currentObjectUrl);
         this.currentObjectUrl = null;
     }
 
@@ -262,7 +349,7 @@ export class MediaDetail extends Component<MediaDetailState> {
         const { media, imgSrc, logs, isDescriptionExpanded } = this.state;
 
         const detailView = html`
-            <div class="animate-fade-in" style="display: flex; flex-direction: column; height: 100%; gap: 1rem;" id="media-root">
+            <div style="display: flex; flex-direction: column; height: 100%; gap: 1rem;" id="media-root">
                 <!-- Header Controls -->
                 <div id="media-detail-header" style="display: flex; gap: 1rem; align-items: center; justify-content: space-between; background: var(--bg-dark); padding: 0.5rem 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
                     <div id="media-back-slot" style="display: flex; justify-content: flex-start;">
@@ -319,7 +406,7 @@ export class MediaDetail extends Component<MediaDetailState> {
                     <!-- Left Column: Cover -->
                     <div id="media-cover-column" style="flex: 0 0 300px; display: flex; flex-direction: column; min-height: 0;">
                         ${imgSrc
-                ? html`<img src="${imgSrc}" style="width: 100%; aspect-ratio: 2/3; object-fit: cover; border-radius: var(--radius-md); cursor: pointer;" id="media-cover-img" alt="Cover" title="Double click to change image" />`
+                ? html`<img src="${imgSrc}" style="width: 100%; aspect-ratio: 2/3; object-fit: cover; border-radius: var(--radius-md); cursor: pointer; opacity: 1; transition: opacity 0.2s ease-out;" id="media-cover-img" alt="Cover" title="Double click to change image" />`
                 : html`<div style="width: 100%; aspect-ratio: 2/3; background: var(--bg-dark); border: 2px dashed var(--border-color); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-secondary);" id="media-cover-img" title="Double click to add image">No Image</div>`
             }
                         <div id="media-milestones-slot-left">
@@ -641,17 +728,7 @@ export class MediaDetail extends Component<MediaDetailState> {
         root.querySelector('#media-prev')?.addEventListener('click', this.onPrev);
         root.querySelector('#media-select')?.addEventListener('change', (e) => this.onNavigate(Number.parseInt((e.target as HTMLSelectElement).value, 10)));
 
-        root.querySelector('#media-cover-img')?.addEventListener('dblclick', async () => {
-            try {
-                const newPath = await getServices().pickAndUploadCover(this.state.media.id!);
-                if (newPath) {
-                    this.state.media.cover_image = newPath;
-                    await this.loadImage();
-                }
-            } catch (e) {
-                await customAlert("Error", "Failed to upload image: " + e);
-            }
-        });
+        this.attachCoverUploadListener(root.querySelector<HTMLElement>('#media-cover-img'));
 
         const copyBtn = root.querySelector('#btn-copy-title') as HTMLElement;
         if (copyBtn) setupCopyButton(copyBtn, this.state.media.title);
@@ -910,6 +987,20 @@ export class MediaDetail extends Component<MediaDetailState> {
                 const logs = await getLogsForMedia(this.state.media.id!);
                 this.setState({ logs });
                 this.notifyLocalDataChanged();
+            }
+        });
+    }
+
+    private attachCoverUploadListener(coverEl: HTMLElement | null) {
+        coverEl?.addEventListener('dblclick', async () => {
+            try {
+                const newPath = await getServices().pickAndUploadCover(this.state.media.id!);
+                if (newPath) {
+                    this.state.media.cover_image = newPath;
+                    await this.loadImage();
+                }
+            } catch (e) {
+                await customAlert("Error", "Failed to upload image: " + e);
             }
         });
     }
