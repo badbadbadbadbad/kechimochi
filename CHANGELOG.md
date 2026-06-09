@@ -23,11 +23,14 @@ The format is based on Keep a Changelog, with one section per released version.
  - Adjusted a few colors in themes : Purple, Yellow lime, Deep blue, to have more readable buttons.
  - Made quick log display 6 elements on desktop and large mobiles.
  - Made loading of Medias faster when clicking from library and quick log shortcuts.
+ - Monthly activity visualisation now labels bars with their date range (e.g. "Jun 1–7") instead of generic "Week 1 / Week 2".
 
 ### Fixed
  - Some elements are now readable in light themes including : Desktop window title, activity breakdown legend, android top bar.
  - Patch notes should now show long bullet lists with the right indentation
  - Changing media using the pagination now properly loads the logs.
+ - The activity visualisation "next period" navigation button is now clearly greyed out when already viewing the current period, instead of appearing active but doing nothing.
+ - Monthly activity visualisation no longer drops activity from the final partial week in some months.
 
 ## [0.2.9] - 2026-05-09
 
