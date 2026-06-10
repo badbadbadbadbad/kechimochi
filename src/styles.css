@@ -3972,8 +3972,8 @@ button:hover{
   padding: 0;
   height: 2rem;
 }
-.single-char-btn:disabled{
-
+.single-char-btn:disabled,
+.chart-nav-button:disabled {
   opacity: 50%;
   pointer-events: none;
   cursor: not-allowed;

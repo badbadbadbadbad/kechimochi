@@ -44,7 +44,7 @@ export class ActivityCharts extends Component<ActivityChartsState> {
                                     <path d="M10 4l-4 4 4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                                 </svg>
                             </button>
-                            <h3 class="activity-charts-title dashboard-module-title">Activity visualization</h3>
+                            <h3 class="activity-charts-title dashboard-module-title">Activity Visualization</h3>
                             <button class="btn btn-ghost chart-nav-button" id="btn-chart-next">
                                 <svg class="nav-svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
                                     <path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>

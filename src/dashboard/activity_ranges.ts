@@ -1,5 +1,7 @@
 import { ActivitySummary } from '../api';
 
+const MONTH_ABBREVIATIONS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
 export const ACTIVITY_TIME_RANGES = {
     ALL_TIME: 0,
     WEEKLY: 7,
@@ -75,14 +77,19 @@ function getMonthlyRange(timeRangeOffset: number): ActivityRange {
     const validEnd = getLocalISODate(endDay);
 
     const weeksCount = Math.ceil(endDay.getDate() / 7);
-    for (let i = 0; i < weeksCount; i++) labels.push(`Week ${i + 1}`);
+    for (let i = 0; i < weeksCount; i++) {
+        const blockStart = i * 7 + 1;
+        const blockEnd = Math.min(endDay.getDate(), i * 7 + 7);
+        const label = blockStart === blockEnd
+            ? `${MONTH_ABBREVIATIONS[m]} ${blockStart}`
+            : `${MONTH_ABBREVIATIONS[m]} ${blockStart}–${blockEnd}`;
+        labels.push(label);
+    }
 
     const getBucketIndex = (dateStr: string) => {
         if (dateStr >= validStart && dateStr <= validEnd) {
-            const date = new Date(dateStr + 'T00:00:00');
-            const firstDayWeekday = startDay.getDay();
-            const offset = firstDayWeekday === 0 ? 6 : firstDayWeekday - 1;
-            return Math.floor((date.getDate() + offset - 1) / 7);
+            const day = new Date(dateStr + 'T00:00:00').getDate();
+            return Math.floor((day - 1) / 7);
         }
         return -1;
     };
@@ -94,7 +101,7 @@ function getYearlyRange(timeRangeOffset: number): ActivityRange {
     const targetYear = new Date().getFullYear() - timeRangeOffset;
     const validStart = `${targetYear}-01-01`;
     const validEnd = `${targetYear}-12-31`;
-    const labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const labels = MONTH_ABBREVIATIONS.slice();
 
     const getBucketIndex = (dateStr: string) => {
         if (dateStr >= validStart && dateStr <= validEnd) {
