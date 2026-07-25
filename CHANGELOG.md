@@ -31,6 +31,7 @@ The format is based on Keep a Changelog, with one section per released version.
  - Backup imports now rejects unsafe or corrupted backup formats
  - Interrupted backups automatically restore the original data
  - Several stability and security vulnerability fixes
+ - The reading time estimate in the media detail view sometimes never appeared
 
 ## [0.3.1] - 2026-07-24
 

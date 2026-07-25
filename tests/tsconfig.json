@@ -6,14 +6,6 @@
       "DOM",
       "DOM.Iterable",
       "ES2023.Array"
-    ],
-    "types": [
-      "@wdio/globals/types",
-      "@wdio/mocha-framework",
-      "expect-webdriverio",
-      "@wdio/visual-service",
-      "@wdio/ocr-service",
-      "vite/client"
     ]
   },
   "include": [

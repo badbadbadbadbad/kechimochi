@@ -370,7 +370,11 @@ export async function addExtraFieldFilterRule({
     await safeClickBySelector('#btn-add-extra-filter-rule');
 
     const extraRuleRows = await $$('.media-extra-filter-rule[data-rule-kind="extra"]');
-    const ruleIndexValue = await extraRuleRows[extraRuleRows.length - 1]?.getAttribute('data-rule-index');
+    const extraRuleRowCount = await extraRuleRows.length;
+    if (extraRuleRowCount === 0) {
+        throw new Error('No extra field filter rule was added');
+    }
+    const ruleIndexValue = await extraRuleRows[extraRuleRowCount - 1].getAttribute('data-rule-index');
     const ruleIndex = Number(ruleIndexValue);
     if (!Number.isInteger(ruleIndex) || ruleIndex < 0) {
         throw new Error('No extra field filter rule was added');

@@ -12,6 +12,8 @@ import type {DriverStartContext, PlatformDriver} from './types.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
+type PlatformEnv = Record<string, string | undefined>;
+
 // ── Port constants ─────────────────────────────────────────────────────────
 
 /** Base port for tauri-driver instances.  Worker N uses 4444+N. */
@@ -99,7 +101,7 @@ export const desktopDriver: PlatformDriver = {
     }
 
     const windowManagementEnabled = specName === WINDOW_STATE_SPEC;
-    const driverEnv = {
+    const driverEnv: PlatformEnv = {
       ...process.env,
       ...(windowManagementEnabled ? {} : { KECHIMOCHI_DISABLE_WINDOW_MANAGEMENT: '1' }),
       RUST_LOG: 'debug',
@@ -178,7 +180,7 @@ export const desktopDriver: PlatformDriver = {
     if (tauriOptions) {
       const existing = (tauriOptions['envs'] as Record<string, string> | undefined) ?? {};
       const windowManagementEnabled = process.env.SPEC_NAME === WINDOW_STATE_SPEC;
-      const isolatedDesktopEnv = {
+      const isolatedDesktopEnv: PlatformEnv = {
         ...env,
         ...(windowManagementEnabled ? {} : { KECHIMOCHI_DISABLE_WINDOW_MANAGEMENT: '1' }),
       };

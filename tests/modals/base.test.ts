@@ -3,7 +3,7 @@ import * as base from '../../src/modal_base';
 import { configureBackStack, resetBackStack } from '../../src/back_stack';
 
 describe('modals/base.ts', () => {
-    let backHandler: (() => boolean | Promise<boolean>) | null = null;
+    let backHandler: (() => void | Promise<void>) | null = null;
 
     beforeEach(() => {
         document.body.innerHTML = '';

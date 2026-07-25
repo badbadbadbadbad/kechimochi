@@ -149,6 +149,10 @@ function deferred<T>() {
     return { promise, resolve };
 }
 
+class DashboardTestHarness extends Dashboard {
+    public declare state: Dashboard['state'];
+}
+
 describe('Dashboard', () => {
     let container: HTMLElement;
 
@@ -186,8 +190,8 @@ describe('Dashboard', () => {
         vi.mocked(api.setSetting).mockResolvedValue();
     });
 
-    async function loadDashboard(): Promise<Dashboard> {
-        const dashboard = new Dashboard(container);
+    async function loadDashboard(): Promise<DashboardTestHarness> {
+        const dashboard = new DashboardTestHarness(container);
         dashboard.render();
         await dashboard.loadData();
         return dashboard;
@@ -196,7 +200,7 @@ describe('Dashboard', () => {
     it('mounts the shell first and loads one bounded snapshot', async () => {
         const pending = deferred<DashboardSnapshot>();
         vi.mocked(api.getDashboardSnapshot).mockReturnValueOnce(pending.promise);
-        const dashboard = new Dashboard(container);
+        const dashboard = new DashboardTestHarness(container);
         dashboard.render();
 
         expect(container.querySelector('.dashboard-root')).not.toBeNull();
@@ -218,7 +222,6 @@ describe('Dashboard', () => {
             expect.objectContaining({ snapshotRequestId: request.request_id }),
             expect.any(Function),
         );
-        // @ts-expect-error state is intentionally inspected as component contract coverage
         expect(dashboard.state.isInitialized).toBe(true);
         expect(ActivityCharts).toHaveBeenCalledTimes(1);
     });
@@ -265,7 +268,6 @@ describe('Dashboard', () => {
             limit: 15,
         })));
         await vi.waitFor(() => {
-            // @ts-expect-error state is intentionally inspected as component contract coverage
             expect(dashboard.state.currentPage).toBe(2);
             expect(container.querySelectorAll('.dashboard-activity-item')).toHaveLength(5);
         });
@@ -314,7 +316,6 @@ describe('Dashboard', () => {
         }));
         const dashboard = await loadDashboard();
 
-        // @ts-expect-error state is intentionally inspected as component contract coverage
         expect(dashboard.state.chartParams).toMatchObject({
             chartType: 'line',
             groupByMode: 'activity_type',
@@ -337,7 +338,6 @@ describe('Dashboard', () => {
         }));
         const dashboard = await loadDashboard();
 
-        // @ts-expect-error state is intentionally inspected as component contract coverage
         expect(dashboard.state.isInitialized).toBe(true);
         await vi.waitFor(() => expect(loggerSpy).toHaveBeenCalledWith(
             'Failed to migrate dashboard group by setting',
@@ -356,7 +356,6 @@ describe('Dashboard', () => {
             bucket: 'day',
             group_by: 'activity_type',
         })));
-        // @ts-expect-error state is intentionally inspected as component contract coverage
         expect(dashboard.state.chartParams).toMatchObject({ timeRangeDays: 7, timeRangeOffset: expectedOffset });
     });
 
@@ -366,7 +365,7 @@ describe('Dashboard', () => {
         vi.mocked(api.getDashboardSnapshot)
             .mockReturnValueOnce(first.promise)
             .mockReturnValueOnce(second.promise);
-        const dashboard = new Dashboard(container);
+        const dashboard = new DashboardTestHarness(container);
         const firstLoad = dashboard.loadData();
         const firstRequest = vi.mocked(api.getDashboardSnapshot).mock.calls[0][0];
         const secondLoad = dashboard.loadData();
@@ -381,8 +380,7 @@ describe('Dashboard', () => {
         }));
         await firstLoad;
 
-        // @ts-expect-error state is intentionally inspected as component contract coverage
-        expect(dashboard.state.summary.total_logs).toBe(222);
+        expect(dashboard.state.summary!.total_logs).toBe(222);
     });
 
     it('rejects an out-of-order range response', async () => {
@@ -400,15 +398,13 @@ describe('Dashboard', () => {
         const newerRequest = vi.mocked(api.getDashboardRange).mock.calls[1][0];
         newer.resolve(rangeResponse(newerRequest, 22));
         await vi.waitFor(() => {
-            // @ts-expect-error state is intentionally inspected as component contract coverage
-            expect(dashboard.state.rangeData.series[0]?.group_label).toBe('Marker 22');
+            expect(dashboard.state.rangeData!.series[0]?.group_label).toBe('Marker 22');
         });
         older.resolve(rangeResponse(olderRequest, 11));
         await older.promise;
         await Promise.resolve();
 
-        // @ts-expect-error state is intentionally inspected as component contract coverage
-        expect(dashboard.state.rangeData.series[0]?.group_label).toBe('Marker 22');
+        expect(dashboard.state.rangeData!.series[0]?.group_label).toBe('Marker 22');
     });
 
     it('rejects an out-of-order heatmap-year response', async () => {
@@ -426,14 +422,12 @@ describe('Dashboard', () => {
         const newerRequest = vi.mocked(api.getDashboardHeatmapYear).mock.calls[1][0];
         newer.resolve({ request_id: newerRequest.request_id, year: newerRequest.year, days: [{ date: `${newerRequest.year}-01-02`, total_minutes: 2, total_characters: 0 }] });
         await vi.waitFor(() => {
-            // @ts-expect-error state is intentionally inspected as component contract coverage
             expect(dashboard.state.heatmapData[0]?.total_minutes).toBe(2);
         });
         older.resolve({ request_id: olderRequest.request_id, year: olderRequest.year, days: [{ date: `${olderRequest.year}-01-01`, total_minutes: 1, total_characters: 0 }] });
         await older.promise;
         await Promise.resolve();
 
-        // @ts-expect-error state is intentionally inspected as component contract coverage
         expect(dashboard.state.heatmapData[0]?.total_minutes).toBe(2);
     });
 

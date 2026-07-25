@@ -14,7 +14,10 @@ import { MediaLog } from './MediaLog';
 import { setupCopyButton } from '../clipboard';
 import { getCharacterCountFromExtraData, mergeExtraData, normalizeExtraData, removeExtraDataKey, renameExtraDataKey, upsertExtraDataValue } from '../extra_data';
 import { formatHhMm } from '../time';
-import { TRACKING_STATUSES, ACTIVITY_TYPES, MEDIA_STATUS, CONTENT_TYPE_TO_ACTIVITY_TYPE, EVENTS } from '../constants';
+import { TRACKING_STATUSES, ACTIVITY_TYPES, MEDIA_STATUS, CONTENT_TYPE_TO_ACTIVITY_TYPE, EVENTS, SETTING_KEYS } from '../constants';
+
+type ReadingSpeedSettingKey = typeof SETTING_KEYS.STATS_NOVEL_SPEED | typeof SETTING_KEYS.STATS_MANGA_SPEED | typeof SETTING_KEYS.STATS_VN_SPEED;
+type ReadingSpeedSettings = Record<ReadingSpeedSettingKey, number>;
 
 interface MediaDetailState {
     media: Media;
@@ -22,6 +25,7 @@ interface MediaDetailState {
     milestones: Milestone[];
     imgSrc: string | null;
     isDescriptionExpanded: boolean;
+    readingSpeedSettings: ReadingSpeedSettings;
 }
 
 export class MediaDetail extends Component<MediaDetailState> {
@@ -108,7 +112,12 @@ export class MediaDetail extends Component<MediaDetailState> {
             logs,
             milestones: [],
             imgSrc: media.cover_image ? MediaCoverLoader.getCached(media.cover_image) : null,
-            isDescriptionExpanded: false
+            isDescriptionExpanded: false,
+            readingSpeedSettings: {
+                [SETTING_KEYS.STATS_NOVEL_SPEED]: 0,
+                [SETTING_KEYS.STATS_MANGA_SPEED]: 0,
+                [SETTING_KEYS.STATS_VN_SPEED]: 0,
+            },
         });
         this.mediaList = mediaList;
         this.currentIndex = currentIndex;
@@ -135,6 +144,7 @@ export class MediaDetail extends Component<MediaDetailState> {
     protected override onMount() {
         this.loadImage().catch(e => Logger.error("Failed to load image", e));
         this.loadMilestones().catch(e => Logger.error("Failed to load milestones", e));
+        this.loadReadingSpeedSettings().catch(e => Logger.error("Failed to load reading speed settings", e));
     }
 
     public updateLogs(mediaId: number, logs: ActivitySummary[]): boolean {
@@ -163,6 +173,27 @@ export class MediaDetail extends Component<MediaDetailState> {
             }
         } catch (e) {
             Logger.error("Failed to load milestones", e);
+        }
+    }
+
+    private async loadReadingSpeedSettings() {
+        try {
+            const [novelSpeed, mangaSpeed, vnSpeed] = await Promise.all([
+                getSetting(SETTING_KEYS.STATS_NOVEL_SPEED),
+                getSetting(SETTING_KEYS.STATS_MANGA_SPEED),
+                getSetting(SETTING_KEYS.STATS_VN_SPEED),
+            ]);
+            if (!this.isDestroyed) {
+                this.setState({
+                    readingSpeedSettings: {
+                        [SETTING_KEYS.STATS_NOVEL_SPEED]: Number.parseInt(novelSpeed || "0", 10),
+                        [SETTING_KEYS.STATS_MANGA_SPEED]: Number.parseInt(mangaSpeed || "0", 10),
+                        [SETTING_KEYS.STATS_VN_SPEED]: Number.parseInt(vnSpeed || "0", 10),
+                    },
+                });
+            }
+        } catch (e) {
+            Logger.warn("Could not load reading speed settings", e);
         }
     }
 
@@ -739,7 +770,7 @@ export class MediaDetail extends Component<MediaDetailState> {
         return valuedFields.join('') + booleanTagList;
     }
 
-    private async computeReadingSpeedHtml(media: Media, readingMin: number): Promise<string> {
+    private computeReadingSpeedHtml(media: Media, readingMin: number, readingSpeedSettings: ReadingSpeedSettings): string {
         try {
             const extra = JSON.parse(media.extra_data || "{}");
             const charCount = getCharacterCountFromExtraData(extra);
@@ -751,14 +782,13 @@ export class MediaDetail extends Component<MediaDetailState> {
                 return `<span class="estimation-block" >Est. Reading Speed: <strong style="color: var(--text-primary);">${speed.toLocaleString()} char/hr (min :${readingMin} , chars : ${charCount})</strong></span>`;
             }
 
-            let speedKey = "";
-            if (media.content_type === "Novel") speedKey = "stats_novel_speed";
-            else if (media.content_type === "Manga") speedKey = "stats_manga_speed";
-            else if (media.content_type === "Visual Novel") speedKey = "stats_vn_speed";
+            let speedKey: ReadingSpeedSettingKey | "" = "";
+            if (media.content_type === "Novel") speedKey = SETTING_KEYS.STATS_NOVEL_SPEED;
+            else if (media.content_type === "Manga") speedKey = SETTING_KEYS.STATS_MANGA_SPEED;
+            else if (media.content_type === "Visual Novel") speedKey = SETTING_KEYS.STATS_VN_SPEED;
             if (!speedKey) return "";
 
-            const avgSpeedStr = await getSetting(speedKey);
-            const avgSpeed = Number.parseInt(avgSpeedStr || "0", 10);
+            const avgSpeed = readingSpeedSettings[speedKey];
             if (avgSpeed <= 0) return "";
 
             const estTotalMin = (charCount / avgSpeed) * 60;
@@ -778,9 +808,9 @@ export class MediaDetail extends Component<MediaDetailState> {
         }
     }
 
-    private async renderStats(root: HTMLElement) {
+    private renderStats(root: HTMLElement) {
         const statsDiv = root.querySelector('#media-first-last-stats') as HTMLElement;
-        const { logs, media } = this.state;
+        const { logs, media, readingSpeedSettings } = this.state;
         if (!statsDiv || logs.length === 0) return;
 
         statsDiv.style.display = 'flex';
@@ -816,7 +846,7 @@ export class MediaDetail extends Component<MediaDetailState> {
         const readingMin = isReadingType
             ? logs.filter(l => (l.activity_type || media.default_activity_type) === 'Reading').reduce((acc, l) => acc + l.duration_minutes, 0)
             : 0;
-        const readingSpeedHtml = isReadingType && readingMin > 0 ? await this.computeReadingSpeedHtml(media, readingMin) : "";
+        const readingSpeedHtml = isReadingType && readingMin > 0 ? this.computeReadingSpeedHtml(media, readingMin, readingSpeedSettings) : "";
 
         statsDiv.innerHTML = `
             <span style="color: var(--text-secondary);">First ${verb}: <strong style="color: var(--text-primary);">${firstLogDate}</strong></span>

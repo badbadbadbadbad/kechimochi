@@ -18,25 +18,20 @@ vi.mock('../../src/media/cover_loader', () => ({
     MediaCoverLoader: coverMocks,
 }));
 
-interface TimelineInternal extends TimelineView {
-    state: {
-        events: TimelineEvent[];
-        availableYears: number[];
-        ambiguousTitles: string[];
-        summary: TimelinePage['summary'];
-        totalCount: number;
-        allEventCount: number;
-        hasMore: boolean;
-        searchQuery: string;
-        selectedYear: string;
-        selectedKind: 'all' | TimelineEvent['kind'];
-        isLoading: boolean;
-        isLoadingMore: boolean;
-        isInitialized: boolean;
-    };
-    loadPage(reset: boolean): Promise<void>;
-    renderTimelineWave(root: HTMLElement, events: TimelineEvent[]): void;
-    getWaveMetric(event: TimelineEvent): number;
+class TestableTimelineView extends TimelineView {
+    public declare state: TimelineView['state'];
+
+    public override loadPage(reset: boolean): Promise<void> {
+        return super.loadPage(reset);
+    }
+
+    public override renderTimelineWave(root: HTMLElement, events: TimelineEvent[]): void {
+        super.renderTimelineWave(root, events);
+    }
+
+    public override getWaveMetric(event: TimelineEvent): number {
+        return super.getWaveMetric(event);
+    }
 }
 
 const createEvent = (overrides: Partial<TimelineEvent> = {}): TimelineEvent => ({
@@ -289,7 +284,7 @@ describe('TimelineView', () => {
         vi.mocked(api.getTimelinePage)
             .mockImplementationOnce(() => first.promise)
             .mockImplementationOnce(() => second.promise);
-        const view = new TimelineView(container) as TimelineInternal;
+        const view = new TestableTimelineView(container);
         view.state.isInitialized = true;
 
         view.state.searchQuery = 'old';
@@ -333,7 +328,7 @@ describe('TimelineView', () => {
 
     it('commits lazy covers in place without rerendering the timeline', async () => {
         coverMocks.load.mockResolvedValue('blob:cover-a');
-        const view = new TimelineView(container) as TimelineInternal;
+        const view = new TestableTimelineView(container);
         view.state = {
             ...view.state,
             events: [createEvent({ coverImage: '/covers/a.jpg' })],
@@ -355,7 +350,7 @@ describe('TimelineView', () => {
 
     it('renders cached covers immediately without scheduling another source read', () => {
         coverMocks.getCached.mockReturnValue('blob:cached-cover');
-        const view = new TimelineView(container) as TimelineInternal;
+        const view = new TestableTimelineView(container);
         const event = createEvent({ coverImage: '/covers/cached.jpg' });
         view.state = {
             ...view.state,
@@ -413,7 +408,7 @@ describe('TimelineView', () => {
             addEventListener: vi.fn(),
             removeEventListener: vi.fn(),
         })));
-        const view = new TimelineView(container) as TimelineInternal;
+        const view = new TestableTimelineView(container);
         const root = document.createElement('div');
         root.innerHTML = '<section class="timeline-shell"><svg class="timeline-wave"><path /></svg></section>';
         container.appendChild(root);

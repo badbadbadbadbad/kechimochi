@@ -21,13 +21,11 @@ describe('VndbImporter', () => {
     describe('removeBbcode', () => {
         it('should remove BBCode tags but keep content', () => {
             const input = '[b]Bold[/b] [url=https://vndb.org]VNDB[/url] [spoiler]Secret[/spoiler]';
-            // @ts-expect-error - reaching into private method for test
-            expect(importer.removeBbcode(input)).toBe('Bold VNDB Secret');
+            expect(importer['removeBbcode'](input)).toBe('Bold VNDB Secret');
         });
 
         it('should handle empty or null input', () => {
-            // @ts-expect-error - reaching into private method
-            expect(importer.removeBbcode('')).toBe('');
+            expect(importer['removeBbcode']('')).toBe('');
         });
     });
 

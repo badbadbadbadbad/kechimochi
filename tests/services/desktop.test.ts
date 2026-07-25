@@ -329,7 +329,7 @@ describe('DesktopServices', () => {
         vi.stubGlobal('navigator', { userAgent: 'Mozilla/5.0 (Linux; Android 15; Pixel 8) Tauri/2.0' });
         vi.mocked(onBackButtonPress).mockImplementationOnce(async (listener) => {
             await listener({ canGoBack: false });
-            return { unregister };
+            return { plugin: 'App', event: 'backButtonPress', channelId: 0, unregister };
         });
 
         const result = await services.subscribeSystemBack(handler);

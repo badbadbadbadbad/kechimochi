@@ -49,24 +49,29 @@ try {
     Logger.warn('[kechimochi] Failed to access storage for mock date:', e);
 }
 
+type DateConstructorArguments =
+    | []
+    | [value: number | string | Date]
+    | [year: number, monthIndex: number, date?: number, hours?: number, minutes?: number, seconds?: number, ms?: number];
+
 if (mockDateStr) {
     const originalDate = Date;
     const frozenTimestamp = new Date(mockDateStr + "T12:00:00Z").getTime();
 
-    // @ts-expect-error - overriding global Date for testing
     globalThis.Date = class extends originalDate {
-        constructor(...args: unknown[]) {
+        constructor(...args: DateConstructorArguments) {
             if (args.length === 0) {
                 super(frozenTimestamp);
+            } else if (args.length === 1) {
+                super(...args);
             } else {
-                // @ts-expect-error - passing args to original Date
                 super(...args);
             }
         }
         static now() {
             return frozenTimestamp;
         }
-    };
+    } as DateConstructor;
 }
 type ViewType = typeof VIEW_NAMES[keyof typeof VIEW_NAMES];
 const APP_BOOT_STATES = {
@@ -465,8 +470,7 @@ export class App {
     }
 
     private async refreshProfileChrome() {
-        const newName = await getSetting(SETTING_KEYS.PROFILE_NAME) || this.currentProfile || DEFAULTS.PROFILE;
-        this.currentProfile = newName;
+        this.currentProfile = await getSetting(SETTING_KEYS.PROFILE_NAME) || this.currentProfile || DEFAULTS.PROFILE;
         this.navUserNameEl.textContent = this.currentProfile;
 
         const initials = getProfileInitials(this.currentProfile);

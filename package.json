@@ -30,7 +30,11 @@
     "changelog:extract": "node scripts/extract-changelog.mjs",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "npm run typecheck:src && npm run typecheck:tests && npm run typecheck:e2e && npm run typecheck:node",
+    "typecheck:src": "tsc --noEmit",
+    "typecheck:tests": "tsc --noEmit -p tests/tsconfig.json",
+    "typecheck:e2e": "tsc --noEmit -p e2e/tsconfig.json",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
     "lint": "eslint 'src/**/*.{ts,tsx}' 'tests/**/*.ts' 'e2e/**/*.ts'"
   },
   "dependencies": {

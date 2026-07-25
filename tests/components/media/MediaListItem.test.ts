@@ -8,6 +8,10 @@ import { Media } from '../../../src/api';
 import * as api from '../../../src/api';
 import { MediaListItem } from '../../../src/media/MediaListItem';
 
+class MediaListItemTestHarness extends MediaListItem {
+    public declare state: MediaListItem['state'];
+}
+
 describe('MediaListItem', () => {
     let container: HTMLElement;
 
@@ -76,7 +80,7 @@ describe('MediaListItem', () => {
         vi.mocked(api.readFileBytes).mockResolvedValue([1, 2, 3]);
         globalThis.URL.createObjectURL = vi.fn(() => 'blob:list-item');
 
-        const component = new MediaListItem(
+        const component = new MediaListItemTestHarness(
             container,
             {
                 title: 'With Cover',
@@ -94,7 +98,6 @@ describe('MediaListItem', () => {
 
         triggerLatestIntersection();
 
-        // @ts-expect-error - accessing private component state for verification
         await vi.waitUntil(() => component.state.imgSrc === 'blob:list-item');
 
         const img = container.querySelector('img');
@@ -107,7 +110,7 @@ describe('MediaListItem', () => {
         vi.mocked(api.readFileBytes).mockResolvedValue([1, 2, 3]);
         globalThis.URL.createObjectURL = vi.fn(() => 'blob:list-item');
 
-        const component = new MediaListItem(
+        const component = new MediaListItemTestHarness(
             container,
             {
                 title: 'With Cover',
@@ -131,7 +134,6 @@ describe('MediaListItem', () => {
 
         triggerLatestIntersection();
 
-        // @ts-expect-error - accessing private component state for verification
         await vi.waitUntil(() => component.state.imgSrc === 'blob:list-item');
         component.render();
 

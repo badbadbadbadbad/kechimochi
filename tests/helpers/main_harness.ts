@@ -9,15 +9,19 @@ type DashboardRecentLogsRequest = import('../../src/types').DashboardRecentLogsR
 type LibrarySnapshotRequest = import('../../src/types').LibrarySnapshotRequest;
 type TimelinePageRequest = import('../../src/types').TimelinePageRequest;
 type ApiModule = typeof import('../../src/api');
+type ShowInitialSetupPrompt = typeof import('../../src/profile/modal').showInitialSetupPrompt;
+type ShowSyncEnablementWizard = typeof import('../../src/sync_modal').showSyncEnablementWizard;
 
 const defaultActivitySummary: ActivitySummary = {
     id: 0,
     date: '2024-01-01',
     duration_minutes: 0,
+    characters: 0,
     title: 'T',
     media_id: 1,
     activity_type: 'M',
     language: 'Japanese',
+    notes: '',
 };
 
 const defaultLocalHttpApiStatus = {
@@ -88,6 +92,10 @@ function defaultLibrarySnapshot(request: LibrarySnapshotRequest) {
             hide_archived: false,
             preferred_layout: 'grid' as const,
             grid_zoom: 100,
+            group_by_type: false,
+            keep_ongoing_first: false,
+            keep_archived_last: false,
+            sort_stages: '',
         },
         media: [],
         metrics: [],
@@ -121,13 +129,12 @@ export function createMainApiMock() {
         setSetting: vi.fn(() => Promise.resolve()),
         getProfilePicture: vi.fn(() => Promise.resolve(null)),
         getLogs: vi.fn(() => Promise.resolve([defaultActivitySummary])),
-        getLibraryActivityMetrics: vi.fn(() => Promise.resolve([])),
         getLogsForMedia: vi.fn(() => Promise.resolve([])),
         getAllMedia: vi.fn(() => Promise.resolve([])),
         getTimelineEvents: vi.fn(() => Promise.resolve([])),
         getLibrarySnapshot: vi.fn((request: LibrarySnapshotRequest) => Promise.resolve(defaultLibrarySnapshot(request))),
         getTimelinePage: vi.fn((request: TimelinePageRequest) => Promise.resolve(defaultTimelinePage(request))),
-        getHeatmap: vi.fn(() => Promise.resolve([{ date: '2024-01-01', total_minutes: 10 }])),
+        getHeatmap: vi.fn(() => Promise.resolve([{ date: '2024-01-01', total_minutes: 10, total_characters: 0 }])),
         getDashboardSnapshot: vi.fn((request: DashboardSnapshotRequest) => Promise.resolve(defaultDashboardSnapshot(request))),
         getDashboardRange: vi.fn((request: DashboardRangeRequest) => Promise.resolve({
             request_id: request.request_id,
@@ -215,7 +222,7 @@ export function createMainApiMock() {
 
 export function createMainModalMock() {
     return {
-        showInitialSetupPrompt: vi.fn(() => Promise.resolve({ action: 'create_local', profileName: 'new-user' })),
+        showInitialSetupPrompt: vi.fn<ShowInitialSetupPrompt>(() => Promise.resolve({ action: 'create_local', profileName: 'new-user' })),
         customAlert: vi.fn(() => Promise.resolve()),
         customConfirm: vi.fn(() => Promise.resolve(false)),
         customPrompt: vi.fn(() => Promise.resolve(null)),
@@ -225,7 +232,7 @@ export function createMainModalMock() {
         showJitenSearchModal: vi.fn(() => Promise.resolve(null)),
         showMediaCsvConflictModal: vi.fn(() => Promise.resolve(null)),
         showAddMilestoneModal: vi.fn(() => Promise.resolve(null)),
-        showSyncEnablementWizard: vi.fn(() => Promise.resolve(null)),
+        showSyncEnablementWizard: vi.fn<ShowSyncEnablementWizard>(() => Promise.resolve(null)),
         showSyncAttachPreview: vi.fn(() => Promise.resolve(true)),
         showBlockingStatus: vi.fn(() => ({
             close: vi.fn(),
@@ -265,13 +272,12 @@ export function resetMainApiMocks(mockedApi: ApiModule) {
     vi.mocked(mockedApi.setSetting).mockResolvedValue();
     vi.mocked(mockedApi.getProfilePicture).mockResolvedValue(null);
     vi.mocked(mockedApi.getLogs).mockResolvedValue([defaultActivitySummary]);
-    vi.mocked(mockedApi.getLibraryActivityMetrics).mockResolvedValue([]);
     vi.mocked(mockedApi.getLogsForMedia).mockResolvedValue([]);
     vi.mocked(mockedApi.getAllMedia).mockResolvedValue([]);
     vi.mocked(mockedApi.getTimelineEvents).mockResolvedValue([]);
     vi.mocked(mockedApi.getLibrarySnapshot).mockImplementation((request) => Promise.resolve(defaultLibrarySnapshot(request)));
     vi.mocked(mockedApi.getTimelinePage).mockImplementation((request) => Promise.resolve(defaultTimelinePage(request)));
-    vi.mocked(mockedApi.getHeatmap).mockResolvedValue([{ date: '2024-01-01', total_minutes: 10 }]);
+    vi.mocked(mockedApi.getHeatmap).mockResolvedValue([{ date: '2024-01-01', total_minutes: 10, total_characters: 0 }]);
     vi.mocked(mockedApi.getDashboardSnapshot).mockImplementation(async request => defaultDashboardSnapshot(request));
     vi.mocked(mockedApi.getDashboardRange).mockImplementation(async request => ({
         request_id: request.request_id,
@@ -352,8 +358,8 @@ export function resetMainApiMocks(mockedApi: ApiModule) {
         remote_changed: false,
     });
     vi.mocked(mockedApi.subscribeSyncProgress).mockResolvedValue(() => undefined);
-    vi.mocked(mockedApi.clearMilestones).mockImplementation(() => {});
-    vi.mocked(mockedApi.deleteMilestone).mockImplementation(() => {});
+    vi.mocked(mockedApi.clearMilestones).mockResolvedValue(undefined);
+    vi.mocked(mockedApi.deleteMilestone).mockResolvedValue(undefined);
 }
 
 export function resetMainModalMocks(mockedModals: MainModalMock) {

@@ -88,6 +88,12 @@ All frontend commands should be run from the project root.
     ```bash
     npm run lint
     ```
+*   **Typecheck**: Run the TypeScript compiler over `src/`, `tests/` and `e2e/`. Each tree has its
+    own project file (`tsconfig.json`, `tests/tsconfig.json`, `e2e/tsconfig.json`) and can be
+    checked on its own via `npm run typecheck:src` / `:tests` / `:e2e`.
+    ```bash
+    npm run typecheck
+    ```
 *   **Unit Tests**: Run frontend logic and component tests using Vitest.
     ```bash
     npm run test
