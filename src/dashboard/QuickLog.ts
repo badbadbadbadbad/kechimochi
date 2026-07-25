@@ -165,6 +165,7 @@ export class QuickLog extends Component<QuickLogState> {
                 class="quick-log-item"
                 data-quick-log-media-id="${media.id}"
                 data-quick-log-title="${escapeHTML(media.title)}"
+                title="${escapeHTML(media.title)}"
                 role="button"
                 tabindex="0"
                 style="position: relative; display: grid; grid-template-columns: 2.8rem minmax(0, 1fr) auto; gap: 0.7rem; align-items: center; width: 100%; padding: 0.45rem 0; border: none; background: transparent; color: inherit; cursor: pointer; text-align: left;"

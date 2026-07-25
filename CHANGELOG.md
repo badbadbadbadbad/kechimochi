@@ -9,6 +9,10 @@ The format is based on Keep a Changelog, with one section per released version.
 ### Added
  - Business cards now show time *and* characters. Added toggle for choice of which metric to calculate percentages by.
  - Added app startup workflow to recover a database with corrupted milestones
+ - The dashboard's side panel can now be collapsed into a Quick Log cover rail, reclaiming space for the charts.
+
+### Changed
+ - The dashboard's weekday distribution spiderweb chart now has a "Weekday Rhythm" title, matching the other dashboard cards.
 
 ## [0.3.1] - 2026-07-24
 

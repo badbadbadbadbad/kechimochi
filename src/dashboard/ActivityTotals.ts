@@ -6,6 +6,8 @@ import { getActivityRange, getLocalISODate, type ActivityPeriod, type ActivityRa
 import { MediaCoverLoader } from '../media/cover_loader';
 import { Logger } from '../logger';
 
+const WEEKDAY_DISTRIBUTION_RANGE_LABEL = 'Last 6 months';
+
 interface ActivityTotalsState {
     logs?: ActivitySummary[];
     mediaList?: Media[];
@@ -265,6 +267,10 @@ export class ActivityTotals extends Component<ActivityTotalsState> {
                 data-range-start="${escapeHTML(distribution.start_date)}"
                 data-range-end="${escapeHTML(distribution.end_date)}"
                 data-metric="${metric}">
+                <div class="dashboard-stats-header">
+                    <h3 class="dashboard-module-title dashboard-totals-title">Weekday Rhythm</h3>
+                    <span class="dashboard-stats-range-label">${WEEKDAY_DISTRIBUTION_RANGE_LABEL}</span>
+                </div>
                 ${hasActivity ? this.renderWeekdayRadar(orderedDays, metric) : `
                     <div class="dashboard-weekday-empty">
                         <span aria-hidden="true">◇</span>

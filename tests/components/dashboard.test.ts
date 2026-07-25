@@ -436,4 +436,47 @@ describe('Dashboard', () => {
         // @ts-expect-error state is intentionally inspected as component contract coverage
         expect(dashboard.state.heatmapData[0]?.total_minutes).toBe(2);
     });
+
+    it('should render the side panel toggle expanded by default', async () => {
+        await loadDashboard();
+
+        const toggle = container.querySelector('#dashboard-side-panel-toggle');
+        expect(toggle?.getAttribute('aria-expanded')).toBe('true');
+        expect(container.querySelector('#dashboard-columns')?.classList.contains('is-side-panel-collapsed')).toBe(false);
+    });
+
+    it('should anchor the side panel toggle inside the collapsible column', async () => {
+        await loadDashboard();
+
+        expect(container.querySelector('#dashboard-left-column > #dashboard-side-panel-toggle')).not.toBeNull();
+    });
+
+    it('should collapse the side panel when the toggle is clicked', async () => {
+        await loadDashboard();
+
+        (container.querySelector('#dashboard-side-panel-toggle') as HTMLButtonElement).click();
+
+        expect(container.querySelector('#dashboard-columns')?.classList.contains('is-side-panel-collapsed')).toBe(true);
+        expect(container.querySelector('#dashboard-side-panel-toggle')?.getAttribute('aria-expanded')).toBe('false');
+    });
+
+    it('should expand the side panel when the toggle is clicked twice', async () => {
+        await loadDashboard();
+        const toggle = container.querySelector('#dashboard-side-panel-toggle') as HTMLButtonElement;
+
+        toggle.click();
+        toggle.click();
+
+        expect(container.querySelector('#dashboard-columns')?.classList.contains('is-side-panel-collapsed')).toBe(false);
+        expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    });
+
+    it('should keep the side panel collapsed across a data refresh', async () => {
+        const dashboard = await loadDashboard();
+        (container.querySelector('#dashboard-side-panel-toggle') as HTMLButtonElement).click();
+
+        await dashboard.loadData();
+
+        expect(container.querySelector('#dashboard-columns')?.classList.contains('is-side-panel-collapsed')).toBe(true);
+    });
 });

@@ -107,6 +107,88 @@ describe('Responsive Styling CUJ', () => {
     expect(stacked.secondChartBelowFirst).toBe(true);
   });
 
+  it('should collapse the dashboard side panel into a cover rail and restore it at stacked widths', async () => {
+    const SIDE_PANEL_TIMEOUT = 10000;
+
+    const readSidePanel = async () => browser.execute(() => {
+      const columns = document.getElementById('dashboard-columns');
+      const column = document.getElementById('dashboard-left-column');
+      const stats = document.getElementById('stats-box-container');
+      const cover = document.querySelector<HTMLElement>('.quick-log-cover');
+      if (!columns || !column || !stats || !cover) return null;
+
+      return {
+        columnWidth: column.getBoundingClientRect().width,
+        coverWidth: cover.getBoundingClientRect().width,
+        statsHidden: getComputedStyle(stats).display === 'none',
+        isCollapsed: columns.classList.contains('is-side-panel-collapsed'),
+      };
+    });
+
+    // The window resize is asynchronous and slow under a loaded parallel run, and both
+    // layouts satisfy a naive "column is wide" check — the stacked column is far wider
+    // than the expanded panel. Gate every resize on the viewport itself before asserting.
+    const resizeViewportTo = async (width: number) => {
+      await browser.setWindowSize(width, 1200);
+      await browser.waitUntil(
+        async () => Math.abs(await browser.execute(() => window.innerWidth) - width) <= 40,
+        {
+          timeout: SIDE_PANEL_TIMEOUT,
+          timeoutMsg: `Viewport did not settle at ${width}px`,
+        },
+      );
+    };
+
+    const waitForSidePanel = async (
+      predicate: (panel: NonNullable<Awaited<ReturnType<typeof readSidePanel>>>) => boolean,
+      timeoutMsg: string,
+    ) => {
+      await browser.waitUntil(async () => {
+        const panel = await readSidePanel();
+        return panel !== null && predicate(panel);
+      }, { timeout: SIDE_PANEL_TIMEOUT, timeoutMsg });
+    };
+
+    await navigateTo('dashboard');
+    expect(await verifyActiveView('dashboard')).toBe(true);
+    await resizeViewportTo(1280);
+    await waitForSelectorDisplayed('#dashboard-side-panel-toggle');
+
+    await waitForSidePanel(
+      panel => panel.columnWidth > 200 && panel.columnWidth < 400 && !panel.statsHidden,
+      'Dashboard side panel did not render at its expanded desktop width',
+    );
+
+    await safeClick('#dashboard-side-panel-toggle');
+    await waitForSidePanel(
+      panel => panel.columnWidth < 60 && panel.statsHidden,
+      'Side panel did not collapse to the rail width',
+    );
+
+    const collapsed = await readSidePanel();
+    expect(collapsed!.coverWidth).toBeLessThan(60);
+    expect(collapsed!.coverWidth).toBeGreaterThan(20);
+
+    await resizeViewportTo(1000);
+    await waitForSidePanel(
+      panel => !panel.statsHidden && panel.columnWidth > 400,
+      'Stacked layout kept the rail instead of restoring the full side panel',
+    );
+    expect((await readSidePanel())!.isCollapsed).toBe(true);
+
+    await resizeViewportTo(1280);
+    await waitForSidePanel(
+      panel => panel.columnWidth < 60 && panel.statsHidden,
+      'Widening the window did not restore the collapsed rail',
+    );
+
+    await safeClick('#dashboard-side-panel-toggle');
+    await waitForSidePanel(
+      panel => panel.columnWidth > 200 && panel.columnWidth < 400,
+      'Side panel did not expand again',
+    );
+  });
+
   it('should reflow weekday stats and keep highlights on a separate row', async () => {
     await navigateTo('dashboard');
     expect(await verifyActiveView('dashboard')).toBe(true);

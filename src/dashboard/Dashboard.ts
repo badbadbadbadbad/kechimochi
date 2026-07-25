@@ -31,6 +31,8 @@ import { getActivityRange } from './activity_ranges';
 import { measureSynchronous } from '../performance';
 
 const RECENT_LOGS_PER_PAGE = 15;
+const SIDE_PANEL_HIDE_LABEL = 'Hide side panel';
+const SIDE_PANEL_SHOW_LABEL = 'Show side panel';
 
 interface ChartParams {
     timeRangeDays: number;
@@ -67,6 +69,7 @@ export class Dashboard extends Component<DashboardState> {
     private activeHeatmapRequest = 0;
     private activeRecentRequest = 0;
     private recentPageLoading = false;
+    private sidePanelCollapsed = false;
 
     private readonly containers: {
         leftColumn?: HTMLElement;
@@ -181,18 +184,19 @@ export class Dashboard extends Component<DashboardState> {
             const root = html`<div class="dashboard-root" style="display: flex; flex-direction: column; gap: 2rem;"></div>`;
             this.container.appendChild(root);
 
-            const topRow = html`<div id="dashboard-top-row" style="display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 2rem; align-items: start;"></div>`;
-            root.appendChild(topRow);
+            const dashboardColumns = html`<div id="dashboard-columns"></div>`;
+            root.appendChild(dashboardColumns);
 
-            this.containers.leftColumn = html`<div id="dashboard-left-column" style="display: flex; flex-direction: column; gap: 1.25rem; min-width: 0;"></div>`;
-            topRow.appendChild(this.containers.leftColumn);
+            this.containers.leftColumn = html`<div id="dashboard-left-column"></div>`;
+            dashboardColumns.appendChild(this.containers.leftColumn);
+            this.containers.leftColumn.appendChild(this.createSidePanelToggle());
             this.containers.stats = this.createStageContainer('stats-box-container', 'Loading study stats…');
             this.containers.leftColumn.appendChild(this.containers.stats);
             this.containers.quickLog = this.createStageContainer('quick-log-container', 'Loading quick log…');
             this.containers.leftColumn.appendChild(this.containers.quickLog);
 
             this.containers.rightColumn = html`<div id="dashboard-right-column" style="display: flex; flex-direction: column; gap: 2rem; min-width: 0;"></div>`;
-            topRow.appendChild(this.containers.rightColumn);
+            dashboardColumns.appendChild(this.containers.rightColumn);
             this.containers.heatmap = this.createStageContainer('heatmap-container', 'Loading activity year…');
             this.containers.rightColumn.appendChild(this.containers.heatmap);
             this.containers.charts = this.createStageContainer('charts-container', 'Preparing charts…');
@@ -220,6 +224,36 @@ export class Dashboard extends Component<DashboardState> {
 
     private createStageContainer(id: string, message: string): HTMLElement {
         return html`<div id="${id}" style="min-width: 0;"><div class="card dashboard-stage-placeholder" style="color: var(--text-secondary);">${message}</div></div>`;
+    }
+
+    private createSidePanelToggle(): HTMLElement {
+        const toggle = html`
+            <button type="button" id="dashboard-side-panel-toggle"
+                class="dashboard-side-panel-toggle"
+                aria-controls="dashboard-left-column"
+                aria-expanded="true"
+                aria-label="${SIDE_PANEL_HIDE_LABEL}"
+                title="${SIDE_PANEL_HIDE_LABEL}">
+                <svg class="dashboard-side-panel-chevron" width="14" height="14" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                    <path d="M7.5 2.5L4 6l3.5 3.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+        `;
+        toggle.addEventListener('click', () => this.toggleSidePanel());
+        return toggle;
+    }
+
+    private toggleSidePanel(): void {
+        this.sidePanelCollapsed = !this.sidePanelCollapsed;
+        const dashboardColumns = this.container.querySelector<HTMLElement>('#dashboard-columns');
+        const toggle = this.container.querySelector<HTMLElement>('#dashboard-side-panel-toggle');
+        if (!dashboardColumns || !toggle) return;
+
+        dashboardColumns.classList.toggle('is-side-panel-collapsed', this.sidePanelCollapsed);
+        const label = this.sidePanelCollapsed ? SIDE_PANEL_SHOW_LABEL : SIDE_PANEL_HIDE_LABEL;
+        toggle.setAttribute('aria-expanded', (!this.sidePanelCollapsed).toString());
+        toggle.setAttribute('aria-label', label);
+        toggle.setAttribute('title', label);
     }
 
     private stageVisualizations(generation: number, snapshotRequestId: number): void {
