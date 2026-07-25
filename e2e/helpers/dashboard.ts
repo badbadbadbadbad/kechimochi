@@ -400,20 +400,29 @@ export async function getActivityChartRangeMetadata(): Promise<{
     await getGrid().waitForDisplayed({ timeout: 5000 });
 
     await browser.waitUntil(async () => {
-        const rangeStart = await getGrid().getAttribute('data-range-start');
-        return Boolean(rangeStart);
+        return browser.execute(() => {
+            const root = document.querySelector<HTMLElement>('.dashboard-root');
+            const layout = document.querySelector<HTMLElement>('#activity-charts-grid');
+            const currentRequestId = root?.dataset.dashboardRequestId;
+            if (!currentRequestId || layout?.dataset.dashboardRequestId !== currentRequestId) return false;
+
+            return Boolean(layout.dataset.rangeStart);
+        }).catch(() => false);
     }, {
-        timeout: 5000,
+        timeout: 10000,
         interval: 100,
-        timeoutMsg: 'Expected activity chart range metadata to be available'
+        timeoutMsg: 'Expected activity chart range metadata to settle on the current range (not a stale one)'
     });
 
-    return {
-        rangeStart: (await getGrid().getAttribute('data-range-start')) ?? '',
-        rangeEnd: (await getGrid().getAttribute('data-range-end')) ?? '',
-        timeRangeDays: (await getGrid().getAttribute('data-time-range-days')) ?? '',
-        timeRangeOffset: (await getGrid().getAttribute('data-time-range-offset')) ?? ''
-    };
+    return browser.execute(() => {
+        const layout = document.querySelector<HTMLElement>('#activity-charts-grid');
+        return {
+            rangeStart: layout?.dataset.rangeStart ?? '',
+            rangeEnd: layout?.dataset.rangeEnd ?? '',
+            timeRangeDays: layout?.dataset.timeRangeDays ?? '',
+            timeRangeOffset: layout?.dataset.timeRangeOffset ?? ''
+        };
+    });
 }
 
 /**
