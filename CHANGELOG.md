@@ -22,7 +22,6 @@ The format is based on Keep a Changelog, with one section per released version.
  - Missing or unreadable cover uploads fail the media import instead of importing missing data
  - Failed inline media edits now revert on screen and display a "Unable to Save Media" warning
  - Concurrent edits via cloud sync now produce a conflict resolution event
- - The dashboard's weekday distribution spiderweb chart now has a "Weekday Rhythm" title, matching the other dashboard cards.
 
 ### Fixed
  - Various HTTP API hardening requirements and data validation fixes

@@ -208,7 +208,7 @@ describe('ActivityTotals', () => {
         const mondayPoint = container.querySelector<SVGCircleElement>('[data-weekday="1"]');
 
         expect(cards.map(card => card.querySelector('h3')?.textContent)).toEqual([
-            'Weekday Rhythm',
+            undefined,
             'Weekly Stats',
             'Categories',
             'Highlights',
@@ -249,7 +249,7 @@ describe('ActivityTotals', () => {
 
         component.render();
 
-        expect(container.querySelector('.dashboard-weekday-card h3')?.textContent).toBe('Weekday Rhythm');
+        expect(container.querySelector('.dashboard-weekday-card h3')).toBeNull();
         expect(textContent(container)).toContain('No timed activity in the last 6 months.');
         expect(container.querySelector('.dashboard-weekday-radar')).toBeNull();
     });
