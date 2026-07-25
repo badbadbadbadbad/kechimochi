@@ -95,6 +95,7 @@ describe('MediaDetail', () => {
         onNext: vi.fn(),
         onPrev: vi.fn(),
         onNavigate: vi.fn(),
+        onNavigateToMedia: vi.fn(),
         onDelete: vi.fn(),
     };
 
@@ -122,6 +123,35 @@ describe('MediaDetail', () => {
         expect(container.textContent).toContain('Writer');
         expect(container.querySelector('#media-variant')?.textContent)
             .toBe('(Optional) Describe variant...');
+        expect(container.querySelector('.media-variant-navigation')).toBeNull();
+    });
+
+    it('links every same-title library variant and marks the current one', () => {
+        const anime = { ...mockMedia, id: 1, variant: 'Anime' } as Media;
+        const manga = { ...mockMedia, id: 2, uid: 'uid-manga', variant: 'Manga' } as Media;
+        const base = { ...mockMedia, id: 3, uid: 'uid-base', variant: '' } as Media;
+        const unrelated = { ...mockMedia, id: 4, uid: 'uid-other', title: 'Other Title', variant: 'Anime' } as Media;
+        const caseVariant = { ...mockMedia, id: 5, uid: 'uid-case', title: 'test media', variant: 'Novel' } as Media;
+        const component = new MediaDetail(
+            container,
+            anime,
+            [],
+            [anime],
+            0,
+            mockCallbacks,
+            [unrelated, manga, anime, base, caseVariant],
+        );
+
+        component.render();
+
+        const links = Array.from(container.querySelectorAll<HTMLButtonElement>('.media-variant-link'));
+        expect(links.map(link => link.textContent?.trim())).toEqual(['(no variant)', 'Anime', 'Manga']);
+        expect(container.querySelector('.media-variant-link.is-current')?.textContent?.trim()).toBe('Anime');
+        expect(container.querySelector('.media-variant-link.is-current')?.getAttribute('aria-current')).toBe('page');
+        expect(container.querySelector('[data-media-variant="Novel"]')).toBeNull();
+
+        container.querySelector<HTMLButtonElement>('[data-media-variant="Manga"]')?.click();
+        expect(mockCallbacks.onNavigateToMedia).toHaveBeenCalledWith(2);
     });
 
     it('should render and edit the media variant', async () => {
@@ -368,6 +398,26 @@ describe('MediaDetail', () => {
         const input = container.querySelector('.edit-input') as HTMLInputElement;
         expect(input.value).toBe('Character Count');
         expect(input.style.textTransform).toBe('none');
+    });
+
+    it('renders untrusted extra metadata as text without creating injected elements', () => {
+        const maliciousKey = `Author"><img id="injected-key" src=x>`;
+        const maliciousValue = `https://example.com/" onmouseover="globalThis.__extraXss=true`;
+        const media = {
+            ...mockMedia,
+            extra_data: JSON.stringify({ [maliciousKey]: maliciousValue }),
+        } as unknown as Media;
+        const component = new MediaDetail(container, media, [], [media], 0, mockCallbacks);
+
+        component.render();
+
+        expect(container.querySelector('#injected-key')).toBeNull();
+        expect(container.querySelector('[onmouseover]')).toBeNull();
+        const key = container.querySelector<HTMLElement>('.editable-extra-key');
+        const value = container.querySelector<HTMLElement>('.editable-extra');
+        expect(key?.dataset.key).toBe(maliciousKey);
+        expect(key?.textContent).toBe(maliciousKey);
+        expect(value?.textContent).toBe(maliciousValue);
     });
 
     it('should render empty extra fields as boolean tags and let them gain a value', async () => {
@@ -795,6 +845,28 @@ describe('MediaDetail', () => {
         statusSelect.dispatchEvent(new Event('change'));
 
         await vi.waitFor(() => expect(api.updateMedia).toHaveBeenCalledWith(expect.objectContaining({ tracking_status: 'Paused' })));
+    });
+
+    it('rolls back a tracking status change when persistence fails', async () => {
+        vi.mocked(api.updateMedia).mockRejectedValueOnce(new Error('database unavailable'));
+        vi.spyOn(Logger, 'error').mockImplementation(() => undefined);
+        const media = { ...mockMedia } as unknown as Media;
+        const component = new MediaDetail(container, media, [], [media], 0, mockCallbacks);
+        component.render();
+
+        const statusSelect = container.querySelector('#media-tracking-status') as HTMLSelectElement;
+        statusSelect.value = 'Paused';
+        statusSelect.dispatchEvent(new Event('change'));
+
+        await vi.waitFor(() => expect(modals.customAlert).toHaveBeenCalledWith(
+            'Unable to Save Media',
+            expect.stringContaining('database unavailable'),
+        ));
+        // @ts-expect-error - accessing private state for regression coverage
+        expect(component.state.media.tracking_status).toBe('Ongoing');
+        expect(
+            (container.querySelector('#media-tracking-status') as HTMLSelectElement).value,
+        ).toBe('Ongoing');
     });
 
     it('should handle marking as complete', async () => {

@@ -16,6 +16,10 @@ import { measureSynchronous } from '../performance';
 import { resolveDisplayContentType } from './content_type';
 import { buildExtraDataIndex, getUniqueExtraFieldNames, serializeLibrarySortStages, type LibrarySortStage } from './sorting';
 import {
+    revalidateLibraryFilterRules,
+    type LibraryFilterRule,
+} from './filtering';
+import {
     libraryPreferenceWrites,
     parseLibraryPreferences,
     reconcileLibraryEnumOrders,
@@ -27,6 +31,7 @@ interface MediaViewLibraryFilters {
     typeFilters: string[];
     statusFilters: string[];
     hideArchived: boolean;
+    filterRules: LibraryFilterRule[];
     sortStages: LibrarySortStage[];
     groupByType: boolean;
     keepOngoingFirst: boolean;
@@ -86,6 +91,7 @@ export class MediaView extends Component<MediaViewState> {
                 typeFilters: [],
                 statusFilters: [],
                 hideArchived: false,
+                filterRules: [],
                 sortStages: [],
                 groupByType: false,
                 keepOngoingFirst: true,
@@ -243,6 +249,20 @@ export class MediaView extends Component<MediaViewState> {
         this.setState({ currentIndex: nextIndex, currentLogs: [] });
 
         await this.loadDetailLogs(media, requestId);
+    }
+
+    private async navigateToMedia(mediaId: number) {
+        let nextIndex = this.state.detailMediaList.findIndex(media => media.id === mediaId);
+        if (nextIndex === -1) {
+            const media = this.state.libraryMediaList.find(entry => entry.id === mediaId);
+            if (!media) {
+                Logger.warn('Related media was not present in the loaded library', mediaId);
+                return;
+            }
+            this.state.detailMediaList = [...this.state.detailMediaList, media];
+            nextIndex = this.state.detailMediaList.length - 1;
+        }
+        await this.navigateToDetailIndex(nextIndex);
     }
 
     private async loadDetailLogs(media: Media, requestId: number) {
@@ -410,7 +430,8 @@ private async handleBack() {
         let preferredLayout = this.state.preferredLayout;
         let gridZoom = this.state.gridZoom;
 
-        const extraFieldNames = getUniqueExtraFieldNames(buildExtraDataIndex(snapshot.media));
+        const extraDataIndex = buildExtraDataIndex(snapshot.media);
+        const extraFieldNames = getUniqueExtraFieldNames(extraDataIndex);
 
         // Only on the first load: after that the in-memory state is authoritative, and a snapshot
         // read racing a fire-and-forget setSetting write would revert the user's last toggle.
@@ -422,9 +443,14 @@ private async handleBack() {
             preferredLayout = snapshot.settings.preferred_layout;
             gridZoom = normalizeLibraryGridZoom(snapshot.settings.grid_zoom);
         } else {
+            const filterRules = revalidateLibraryFilterRules(
+                libraryFilters.filterRules,
+                extraDataIndex,
+            );
             libraryFilters = {
                 ...libraryFilters,
                 sortStages: revalidateSortStages(libraryFilters.sortStages, extraFieldNames),
+                filterRules,
             };
         }
 
@@ -541,11 +567,37 @@ private async handleBack() {
             && left.keepArchivedLast === right.keepArchivedLast
             && serializeLibrarySortStages(left.sortStages) === serializeLibrarySortStages(right.sortStages)
             && this.areStringArraysEqual(left.typeFilters, right.typeFilters)
-            && this.areStringArraysEqual(left.statusFilters, right.statusFilters);
+            && this.areStringArraysEqual(left.statusFilters, right.statusFilters)
+            && this.areFilterRulesEqual(left.filterRules, right.filterRules);
     }
 
     private areStringArraysEqual(left: string[], right: string[]): boolean {
         return left.length === right.length && left.every((value, index) => value === right[index]);
+    }
+
+    private areFilterRulesEqual(
+        left: LibraryFilterRule[],
+        right: LibraryFilterRule[],
+    ): boolean {
+        return left.length === right.length && left.every((rule, index) => {
+            const other = right[index];
+            if (
+                rule.kind !== other?.kind
+                || rule.join !== other.join
+                || rule.negated !== other.negated
+            ) {
+                return false;
+            }
+            if (rule.kind === 'booleanTag' && other.kind === 'booleanTag') {
+                return rule.tagName === other.tagName;
+            }
+            if (rule.kind === 'extra' && other.kind === 'extra') {
+                return rule.fieldName === other.fieldName
+                    && rule.operator === other.operator
+                    && rule.value === other.value;
+            }
+            return false;
+        });
     }
 
     private areMediaListsEqual(left: Media[], right: Media[]): boolean {
@@ -591,6 +643,7 @@ private async handleBack() {
                 ...this.state.libraryFilters,
                 typeFilters: [...this.state.libraryFilters.typeFilters],
                 statusFilters: [...this.state.libraryFilters.statusFilters],
+                filterRules: this.state.libraryFilters.filterRules.map(rule => ({ ...rule })),
             },
             preferredLayout: this.state.preferredLayout,
             gridZoom: this.state.gridZoom,
@@ -738,8 +791,10 @@ private async handleBack() {
                 onNext: () => { this.runAsync(this.navigateDetail(1), 'Failed to navigate to next media'); },
                 onPrev: () => { this.runAsync(this.navigateDetail(-1), 'Failed to navigate to previous media'); },
                 onNavigate: (index) => { this.runAsync(this.navigateToDetailIndex(index), 'Failed to navigate to selected media'); },
+                onNavigateToMedia: (mediaId) => { this.runAsync(this.navigateToMedia(mediaId), 'Failed to navigate to related media variant'); },
                 onDelete: () => { this.runAsync(this.exitDetail(true), 'Failed to refresh library after delete'); },
             },
+            this.state.libraryMediaList,
         );
         this.activeSubComponent.render();
     }
