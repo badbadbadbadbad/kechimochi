@@ -819,6 +819,8 @@ input:focus, select:focus {
 }
 
 .timeline-root {
+  position: relative;
+  isolation: isolate;
   max-width: 1120px;
   margin: 0 auto;
   padding-bottom: 2.5rem;
@@ -852,6 +854,8 @@ input:focus, select:focus {
 }
 
 .timeline-stack {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
@@ -1007,6 +1011,10 @@ input:focus, select:focus {
   pointer-events: none;
   box-shadow: 0 0 18px color-mix(in srgb, var(--accent-blue) 10%, transparent);
   z-index: 0;
+}
+
+.timeline-shell.is-empty::before {
+  display: none;
 }
 
 .timeline-page-sentinel {

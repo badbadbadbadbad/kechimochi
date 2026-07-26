@@ -55,6 +55,7 @@ const DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
 const SMALL_TIMELINE_MEDIA_QUERY = '(max-width: 1024px)';
 const TIMELINE_PAGE_SIZE = 40;
 const TIMELINE_SEARCH_DEBOUNCE_MS = 180;
+const WAVE_RESIZE_DEBOUNCE_MS = 160;
 
 export class TimelineView extends Component<TimelineState> {
     private coverVisibility: CoverVisibilityController | null = null;
@@ -63,6 +64,25 @@ export class TimelineView extends Component<TimelineState> {
     private renderToken = 0;
     private searchTimer: ReturnType<typeof setTimeout> | null = null;
     private waveFrame: number | null = null;
+    private waveResizeTimer: ReturnType<typeof setTimeout> | null = null;
+
+    private readonly handleViewportResize = (): void => {
+        if (this.waveResizeTimer !== null) {
+            globalThis.clearTimeout(this.waveResizeTimer);
+        }
+        this.waveResizeTimer = globalThis.setTimeout(() => {
+            this.waveResizeTimer = null;
+            const root = this.container.querySelector<HTMLElement>('#timeline-root');
+            if (!root?.isConnected || !this.state.isInitialized || root.clientWidth === 0) {
+                return;
+            }
+            if (this.waveFrame !== null) {
+                globalThis.cancelAnimationFrame(this.waveFrame);
+                this.waveFrame = null;
+            }
+            this.renderTimelineWave(root, this.state.events);
+        }, WAVE_RESIZE_DEBOUNCE_MS);
+    };
 
     constructor(container: HTMLElement) {
         super(container, {
@@ -80,6 +100,7 @@ export class TimelineView extends Component<TimelineState> {
             isLoadingMore: false,
             isInitialized: false,
         });
+        globalThis.addEventListener('resize', this.handleViewportResize);
     }
 
     async loadData(): Promise<void> {
@@ -273,6 +294,7 @@ export class TimelineView extends Component<TimelineState> {
         const summaryItems = this.getSummaryItems();
         const yearOptions = this.getYearOptions();
         const hasAnyEvents = this.state.allEventCount > 0;
+        const hasRows = hasAnyEvents && visibleEvents.length > 0;
         let timelineContent = groups.map((group, groupIndex) => this.renderGroup(group, groupIndex)).join('');
 
         if (!hasAnyEvents) {
@@ -303,6 +325,7 @@ export class TimelineView extends Component<TimelineState> {
         }
 
         return `
+            <svg class="timeline-wave" aria-hidden="true"></svg>
             <div class="timeline-stack">
                 <section class="timeline-summary-strip" aria-label="Timeline summary">
                     ${summaryItems
@@ -352,8 +375,7 @@ export class TimelineView extends Component<TimelineState> {
                     </div>
                 </section>
 
-                <section class="timeline-shell">
-                    <svg class="timeline-wave" aria-hidden="true"></svg>
+                <section class="timeline-shell${hasRows ? '' : ' is-empty'}">
                     ${timelineContent}
                 </section>
             </div>
@@ -760,9 +782,8 @@ export class TimelineView extends Component<TimelineState> {
     }
 
     private renderTimelineWave(root: HTMLElement, visibleEvents: TimelineEvent[]): void {
-        const shell = root.querySelector('.timeline-shell') as HTMLElement | null;
         const wave = root.querySelector('.timeline-wave') as SVGSVGElement | null;
-        if (!shell || !wave) {
+        if (!wave) {
             return;
         }
 
@@ -779,31 +800,33 @@ export class TimelineView extends Component<TimelineState> {
                 return;
             }
 
-            const nodes = Array.from(shell.querySelectorAll<HTMLElement>('.timeline-entry-node'));
+            const nodes = Array.from(root.querySelectorAll<HTMLElement>('.timeline-entry-node'));
             const pointCount = Math.min(nodes.length, visibleEvents.length);
             if (pointCount < 2) {
                 wave.innerHTML = '';
                 return;
             }
 
-            const shellRect = shell.getBoundingClientRect();
+            const backdropRect = root.getBoundingClientRect();
             const firstNodeRect = nodes[0].getBoundingClientRect();
-            const centerX = firstNodeRect.left - shellRect.left + firstNodeRect.width / 2;
-            const shellWidth = Math.max(1, Math.ceil(shell.clientWidth));
-            const shellHeight = Math.max(1, Math.ceil(shell.scrollHeight));
+            const centerX = firstNodeRect.left - backdropRect.left + firstNodeRect.width / 2;
+            const waveWidth = Math.max(1, Math.ceil(root.clientWidth));
+            const waveHeight = Math.max(1, Math.ceil(root.scrollHeight));
+            const availableWidth = Math.max(waveWidth, root.parentElement?.clientWidth ?? waveWidth);
+            const amplitudeScale = availableWidth / waveWidth;
 
             const points = visibleEvents.slice(0, pointCount).map((event, index) => {
                 const nodeRect = nodes[index].getBoundingClientRect();
                 return {
-                    y: nodeRect.top - shellRect.top + nodeRect.height / 2,
+                    y: nodeRect.top - backdropRect.top + nodeRect.height / 2,
                     metric: this.getWaveMetric(event),
                 };
             });
 
             const normalizedMetrics = points.map(point => Math.sqrt(point.metric));
             const maxMetric = Math.max(...normalizedMetrics, 1);
-            const minAmplitude = Math.max(52, Math.min(88, shellWidth * 0.085));
-            const maxAmplitude = Math.max(220, Math.min(420, shellWidth * 0.34));
+            const minAmplitude = Math.max(52, Math.min(88, waveWidth * 0.085)) * amplitudeScale;
+            const maxAmplitude = Math.max(220, Math.min(420, waveWidth * 0.34)) * amplitudeScale;
             const wavePoints = points.map((point, index) => ({
                 y: point.y,
                 amplitude:
@@ -811,14 +834,14 @@ export class TimelineView extends Component<TimelineState> {
                     (normalizedMetrics[index] / maxMetric) * (maxAmplitude - minAmplitude),
             }));
 
-            const leftSamples = this.buildWaveSamples(wavePoints, shellHeight, minAmplitude);
-            const rightSamples = this.buildWaveSamples(wavePoints, shellHeight, minAmplitude);
+            const leftSamples = this.buildWaveSamples(wavePoints, waveHeight, minAmplitude);
+            const rightSamples = this.buildWaveSamples(wavePoints, waveHeight, minAmplitude);
             const leftBodyPath = this.buildSideWaveAreaPath(leftSamples, centerX, -1, minAmplitude, 1.42, 0.2);
             const rightBodyPath = this.buildSideWaveAreaPath(rightSamples, centerX, 1, minAmplitude, 1.42, 0.2);
             const leftHazePath = this.buildSideWaveAreaPath(leftSamples, centerX, -1, minAmplitude, 1.92, 0.08);
             const rightHazePath = this.buildSideWaveAreaPath(rightSamples, centerX, 1, minAmplitude, 1.92, 0.08);
 
-            wave.setAttribute('viewBox', `0 0 ${shellWidth} ${shellHeight}`);
+            wave.setAttribute('viewBox', `0 0 ${waveWidth} ${waveHeight}`);
             wave.innerHTML = `
                 <path class="timeline-wave-haze timeline-wave-haze-left" d="${leftHazePath}"></path>
                 <path class="timeline-wave-haze timeline-wave-haze-right" d="${rightHazePath}"></path>
@@ -1006,6 +1029,11 @@ export class TimelineView extends Component<TimelineState> {
     public override destroy(): void {
         this.requestId += 1;
         this.renderToken += 1;
+        globalThis.removeEventListener('resize', this.handleViewportResize);
+        if (this.waveResizeTimer !== null) {
+            globalThis.clearTimeout(this.waveResizeTimer);
+            this.waveResizeTimer = null;
+        }
         this.coverVisibility?.disconnect();
         this.coverVisibility = null;
         this.paginationObserver?.disconnect();
