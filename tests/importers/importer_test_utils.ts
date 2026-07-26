@@ -71,7 +71,7 @@ export async function expectMockedImport<T extends MetadataImporter>(
     options: MockedImportOptions,
 ): Promise<ScrapedMetadata> {
     if ('responses' in options) {
-        mockFetchResponses(options.responses);
+        mockFetchResponses(options.responses ?? []);
     } else {
         mockFetchResponse(options.response);
     }

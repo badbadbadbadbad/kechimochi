@@ -6,7 +6,8 @@
       "@wdio/mocha-framework",
       "expect-webdriverio",
       "@wdio/visual-service",
-      "@wdio/ocr-service"
+      "@wdio/ocr-service",
+      "vite/client"
     ]
   },
   "include": [

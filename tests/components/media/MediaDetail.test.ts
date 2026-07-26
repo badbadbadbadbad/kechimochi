@@ -74,6 +74,10 @@ vi.stubGlobal('URL', {
 
 const normalizeLocalizedNumbers = (text: string | null) => (text || '').replace(/\u202f/g, ',');
 
+class MediaDetailTestHarness extends MediaDetail {
+    public declare state: MediaDetail['state'];
+}
+
 describe('MediaDetail', () => {
     let container: HTMLElement;
     const mockMedia = {
@@ -112,10 +116,9 @@ describe('MediaDetail', () => {
         vi.mocked(api.getMilestones).mockResolvedValue([]);
         vi.mocked(api.readFileBytes).mockResolvedValue([1, 2, 3]);
 
-        const component = new MediaDetail(container, { ...mockMedia } as unknown as Media, [], [mockMedia as unknown as Media], 0, mockCallbacks);
+        const component = new MediaDetailTestHarness(container, { ...mockMedia } as unknown as Media, [], [mockMedia as unknown as Media], 0, mockCallbacks);
         component.triggerMount();
-        
-        // @ts-expect-error - accessing private state for testing
+
         await vi.waitUntil(() => component.state.imgSrc === 'blob:abc');
         component.render();
 
@@ -183,7 +186,7 @@ describe('MediaDetail', () => {
     it('rejects an in-app variant rename that would collide with an existing title-variant pair', async () => {
         const anime = { ...mockMedia, variant: 'Anime' } as Media;
         const manga = { ...mockMedia, id: 2, uid: 'uid-manga', variant: 'Manga' } as Media;
-        const component = new MediaDetail(container, anime, [], [anime, manga], 0, mockCallbacks);
+        const component = new MediaDetailTestHarness(container, anime, [], [anime, manga], 0, mockCallbacks);
         component.render();
 
         (container.querySelector('#media-variant') as HTMLElement).dispatchEvent(new Event('dblclick'));
@@ -196,7 +199,6 @@ describe('MediaDetail', () => {
             expect.stringContaining('"Test Media" with variant "Manga"'),
         ));
         expect(api.updateMedia).not.toHaveBeenCalled();
-        // @ts-expect-error - accessing private state for regression coverage
         expect(component.state.media.variant).toBe('Anime');
         expect(container.querySelector('#media-variant')?.textContent).toBe('Anime');
     });
@@ -204,7 +206,7 @@ describe('MediaDetail', () => {
     it('rejects a title rename that would collide when both variants are blank', async () => {
         const current = { ...mockMedia, title: 'Title A', variant: '' } as Media;
         const existing = { ...mockMedia, id: 2, uid: 'uid-title-b', title: 'Title B', variant: '' } as Media;
-        const component = new MediaDetail(container, current, [], [current, existing], 0, mockCallbacks);
+        const component = new MediaDetailTestHarness(container, current, [], [current, existing], 0, mockCallbacks);
         component.render();
 
         (container.querySelector('#media-title') as HTMLElement).dispatchEvent(new Event('dblclick'));
@@ -217,7 +219,6 @@ describe('MediaDetail', () => {
             expect.stringContaining('"Title B" with no variant'),
         ));
         expect(api.updateMedia).not.toHaveBeenCalled();
-        // @ts-expect-error - accessing private state for regression coverage
         expect(component.state.media.title).toBe('Title A');
         expect(container.querySelector('#media-title')?.textContent).toBe('Title A');
     });
@@ -244,7 +245,7 @@ describe('MediaDetail', () => {
         vi.mocked(api.updateMedia).mockRejectedValueOnce(new Error('Media already exists with that title and variant'));
         vi.spyOn(Logger, 'error').mockImplementation(() => undefined);
         const media = { ...mockMedia, variant: 'Anime' } as Media;
-        const component = new MediaDetail(
+        const component = new MediaDetailTestHarness(
             container,
             media,
             [],
@@ -263,7 +264,6 @@ describe('MediaDetail', () => {
             'Unable to Save Media',
             expect.stringContaining('was not changed'),
         ));
-        // @ts-expect-error - accessing private state for regression coverage
         expect(component.state.media.title).toBe('Test Media');
         expect(media.title).toBe('Test Media');
         expect(container.querySelector('#media-title')?.textContent).toBe('Test Media');
@@ -315,10 +315,9 @@ describe('MediaDetail', () => {
         mockServices.isDesktop.mockReturnValue(false);
         vi.mocked(api.getMilestones).mockResolvedValue([]);
 
-        const component = new MediaDetail(container, { ...mockMedia } as unknown as Media, [], [mockMedia as unknown as Media], 0, mockCallbacks);
+        const component = new MediaDetailTestHarness(container, { ...mockMedia } as unknown as Media, [], [mockMedia as unknown as Media], 0, mockCallbacks);
         component.triggerMount();
 
-        // @ts-expect-error - accessing private state for testing
         await vi.waitUntil(() => component.state.imgSrc === 'https://covers.example/test.jpg');
 
         expect(mockServices.loadCoverImage).toHaveBeenCalledWith('/path/to/img.jpg');
@@ -333,10 +332,9 @@ describe('MediaDetail', () => {
         vi.clearAllMocks();
         vi.mocked(api.getMilestones).mockResolvedValue([]);
 
-        const component = new MediaDetail(container, { ...mockMedia } as unknown as Media, [], [mockMedia as unknown as Media], 0, mockCallbacks);
+        const component = new MediaDetailTestHarness(container, { ...mockMedia } as unknown as Media, [], [mockMedia as unknown as Media], 0, mockCallbacks);
         component.triggerMount();
 
-        // @ts-expect-error - accessing private state for testing
         expect(component.state.imgSrc).toBe('blob:abc');
         await Promise.resolve();
 
@@ -518,9 +516,8 @@ describe('MediaDetail', () => {
         vi.mocked(api.getMilestones).mockResolvedValue([]);
         vi.mocked(api.readFileBytes).mockResolvedValue([1, 2, 3]);
 
-        const component = new MediaDetail(container, { ...mockMedia } as unknown as Media, [], [mockMedia as unknown as Media], 0, mockCallbacks);
+        const component = new MediaDetailTestHarness(container, { ...mockMedia } as unknown as Media, [], [mockMedia as unknown as Media], 0, mockCallbacks);
         component.triggerMount();
-        // @ts-expect-error - accessing private state for testing
         await vi.waitUntil(() => component.state.imgSrc === 'blob:abc');
 
         component.destroy();
@@ -851,7 +848,7 @@ describe('MediaDetail', () => {
         vi.mocked(api.updateMedia).mockRejectedValueOnce(new Error('database unavailable'));
         vi.spyOn(Logger, 'error').mockImplementation(() => undefined);
         const media = { ...mockMedia } as unknown as Media;
-        const component = new MediaDetail(container, media, [], [media], 0, mockCallbacks);
+        const component = new MediaDetailTestHarness(container, media, [], [media], 0, mockCallbacks);
         component.render();
 
         const statusSelect = container.querySelector('#media-tracking-status') as HTMLSelectElement;
@@ -862,7 +859,6 @@ describe('MediaDetail', () => {
             'Unable to Save Media',
             expect.stringContaining('database unavailable'),
         ));
-        // @ts-expect-error - accessing private state for regression coverage
         expect(component.state.media.tracking_status).toBe('Ongoing');
         expect(
             (container.querySelector('#media-tracking-status') as HTMLSelectElement).value,
@@ -906,9 +902,8 @@ describe('MediaDetail', () => {
     it('should handle deleting all milestones', async () => {
         vi.mocked(modals.customConfirm).mockResolvedValue(true);
         const milestones = [{ id: 1, name: 'M1', duration: 10 }];
-        const component = new MediaDetail(container, { ...mockMedia } as unknown as Media, [], [mockMedia as unknown as Media], 0, mockCallbacks);
+        const component = new MediaDetailTestHarness(container, { ...mockMedia } as unknown as Media, [], [mockMedia as unknown as Media], 0, mockCallbacks);
         component.triggerMount();
-        // @ts-expect-error - accessing private state
         component.state.milestones = milestones as unknown as Milestone[];
         component.render();
 
@@ -921,9 +916,8 @@ describe('MediaDetail', () => {
     it('should handle individual milestone deletion', async () => {
         vi.mocked(modals.customConfirm).mockResolvedValue(true);
         const milestones = [{ id: 123, name: 'M1', duration: 10 }];
-        const component = new MediaDetail(container, { ...mockMedia } as unknown as Media, [], [mockMedia as unknown as Media], 0, mockCallbacks);
+        const component = new MediaDetailTestHarness(container, { ...mockMedia } as unknown as Media, [], [mockMedia as unknown as Media], 0, mockCallbacks);
         component.triggerMount();
-        // @ts-expect-error - accessing private state
         component.state.milestones = milestones as unknown as Milestone[];
         component.render();
 
@@ -949,9 +943,8 @@ describe('MediaDetail', () => {
         vi.mocked(modals.customConfirm).mockResolvedValue(true);
         vi.mocked(api.deleteMilestone).mockRejectedValue(new Error('Failed!'));
         const milestones = [{ id: 123, name: 'M1', duration: 10 }];
-        const component = new MediaDetail(container, { ...mockMedia } as unknown as Media, [], [mockMedia as unknown as Media], 0, mockCallbacks);
+        const component = new MediaDetailTestHarness(container, { ...mockMedia } as unknown as Media, [], [mockMedia as unknown as Media], 0, mockCallbacks);
         component.triggerMount();
-        // @ts-expect-error - accessing private state
         component.state.milestones = milestones as unknown as Milestone[];
         component.render();
 
@@ -964,8 +957,7 @@ describe('MediaDetail', () => {
     it('should handle all milestones deletion error', async () => {
         vi.mocked(modals.customConfirm).mockResolvedValue(true);
         vi.mocked(api.clearMilestones).mockRejectedValue(new Error('Failed!'));
-        const component = new MediaDetail(container, { ...mockMedia } as unknown as Media, [], [mockMedia as unknown as Media], 0, mockCallbacks);
-        // @ts-expect-error - accessing private state
+        const component = new MediaDetailTestHarness(container, { ...mockMedia } as unknown as Media, [], [mockMedia as unknown as Media], 0, mockCallbacks);
         component.state.milestones = [{ id: 1, name: 'M1', duration: 10 }] as unknown as Milestone[];
         component.triggerMount();
         component.render();

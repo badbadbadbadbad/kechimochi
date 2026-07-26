@@ -8,6 +8,7 @@ export default tseslint.config(
   sonarjsConfigs.recommended,
   {
     rules: {
+      "@typescript-eslint/ban-ts-comment": ["error", { "ts-expect-error": true }],
       "sonarjs/cognitive-complexity": ["error", 15],
       "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
       "no-console": "warn",

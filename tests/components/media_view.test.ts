@@ -81,6 +81,21 @@ function stubMatchMedia(initialMatches: boolean, mode: 'modern' | 'legacy' = 'mo
     };
 }
 
+function lastMockCallArguments<Args extends unknown[]>(calls: Args[], description: string): Args {
+    const callArguments = calls.at(-1);
+    if (!callArguments) {
+        throw new Error(`Expected ${description} to have been called at least once, but it was not.`);
+    }
+    return callArguments;
+}
+
+function requireDefined<T>(value: T | undefined, description: string): T {
+    if (value === undefined) {
+        throw new Error(`Expected ${description} to be defined, but it was undefined.`);
+    }
+    return value;
+}
+
 async function renderAndWaitForBrowser(component: MediaView) {
     component.render();
     await component.loadData();
@@ -89,11 +104,10 @@ async function renderAndWaitForBrowser(component: MediaView) {
     });
 }
 
-async function renderAndWaitForInitialization(component: MediaView) {
+async function renderAndWaitForInitialization(component: MediaViewTestHarness) {
     component.render();
     await component.loadData();
     await vi.waitFor(() => {
-        // @ts-expect-error - accessing private state for assertions
         if (!component.state.isInitialized) throw new Error('Not initialized');
     });
 }
@@ -109,6 +123,14 @@ function librarySettings(overrides = {}) {
         sort_stages: '[]',
         ...overrides,
     };
+}
+
+class MediaViewTestHarness extends MediaView {
+    public declare state: MediaView['state'];
+
+    get groupByTypeFilter(): boolean {
+        return this.state.libraryFilters.groupByType;
+    }
 }
 
 describe('MediaView', () => {
@@ -264,7 +286,10 @@ describe('MediaView', () => {
         const component = new MediaView(container);
         await renderAndWaitForBrowser(component);
 
-        const onFilterChange = vi.mocked(MediaLibraryBrowser).mock.calls[0][4];
+        const onFilterChange = requireDefined(
+            vi.mocked(MediaLibraryBrowser).mock.calls[0][4],
+            'MediaLibraryBrowser onFilterChange callback',
+        );
         onFilterChange({
             searchQuery: 'Filtered',
             typeFilters: ['Anime'],
@@ -377,14 +402,13 @@ describe('MediaView', () => {
         vi.stubGlobal('matchMedia', undefined);
         vi.mocked(api.getAllMedia).mockResolvedValue([]);
 
-        const component = new MediaView(container);
+        const component = new MediaViewTestHarness(container);
         await renderAndWaitForBrowser(component);
 
         const browserProps = vi.mocked(MediaLibraryBrowser).mock.calls.at(-1)?.[1];
         expect(browserProps).toEqual(expect.objectContaining({ isGridSupported: true }));
 
         component.destroy();
-        // @ts-expect-error - accessing private state for assertions
         expect(component.state.isGridSupported).toBe(true);
     });
 
@@ -423,16 +447,14 @@ describe('MediaView', () => {
         vi.mocked(api.getAllMedia).mockResolvedValue(mockMedia as unknown as Media[]);
         vi.mocked(api.getLogsForMedia).mockResolvedValue([]);
 
-        const component = new MediaView(container);
+        const component = new MediaViewTestHarness(container);
         await renderAndWaitForBrowser(component);
 
         const onSelect = vi.mocked(MediaLibraryBrowser).mock.calls[0][2];
         onSelect({ mediaId: 2, navigationIds: [1, 2] });
 
         await vi.waitFor(() => {
-            // @ts-expect-error - accessing private state for assertions
             expect(component.state.viewMode).toBe('detail');
-            // @ts-expect-error - accessing private state for assertions
             expect(component.state.currentIndex).toBe(1);
         });
         expect(MediaDetail).toHaveBeenCalled();
@@ -463,18 +485,18 @@ describe('MediaView', () => {
         });
         expect(api.getAllMedia).toHaveBeenCalledTimes(1);
 
-        const detailCallbacks = vi.mocked(MediaDetail).mock.calls.at(-1)?.[5];
+        const detailCallbacks = lastMockCallArguments(vi.mocked(MediaDetail).mock.calls, 'MediaDetail')[5];
         detailCallbacks.onNext();
         await vi.waitFor(() => expect(api.getLogsForMedia).toHaveBeenLastCalledWith(20));
 
-        const nextDetailCallbacks = vi.mocked(MediaDetail).mock.calls.at(-1)?.[5];
+        const nextDetailCallbacks = lastMockCallArguments(vi.mocked(MediaDetail).mock.calls, 'MediaDetail')[5];
         nextDetailCallbacks.onNext();
         await vi.waitFor(() => expect(api.getLogsForMedia).toHaveBeenLastCalledWith(30));
 
         expect(api.getLogsForMedia).not.toHaveBeenCalledWith(10);
         expect(api.getLogsForMedia).not.toHaveBeenCalledWith(40);
 
-        const wrappedDetailCallbacks = vi.mocked(MediaDetail).mock.calls.at(-1)?.[5];
+        const wrappedDetailCallbacks = lastMockCallArguments(vi.mocked(MediaDetail).mock.calls, 'MediaDetail')[5];
         wrappedDetailCallbacks.onBackToLibrary();
         await vi.waitFor(() => {
             const browserProps = vi.mocked(MediaLibraryBrowser).mock.calls.at(-1)?.[1];
@@ -498,7 +520,7 @@ describe('MediaView', () => {
         onSelect({ mediaId: 10, navigationIds: [10, 30] });
         await vi.waitFor(() => expect(MediaDetail).toHaveBeenCalled());
 
-        const detailCallbacks = vi.mocked(MediaDetail).mock.calls.at(-1)?.[5];
+        const detailCallbacks = lastMockCallArguments(vi.mocked(MediaDetail).mock.calls, 'MediaDetail')[5];
         detailCallbacks.onNavigateToMedia?.(20);
 
         await vi.waitFor(() => {
@@ -544,20 +566,18 @@ describe('MediaView', () => {
         vi.mocked(api.getAllMedia).mockResolvedValue(initialMedia as unknown as Media[]);
         vi.mocked(api.getLogsForMedia).mockResolvedValue([]);
 
-        const component = new MediaView(container);
+        const component = new MediaViewTestHarness(container);
         await renderAndWaitForBrowser(component);
 
         const onSelect = vi.mocked(MediaLibraryBrowser).mock.calls[0][2];
         onSelect({ mediaId: 10, navigationIds: [10, 20] });
         await vi.waitFor(() => {
-            // @ts-expect-error - accessing private state for assertions
             expect(component.state.viewMode).toBe('detail');
         });
 
         vi.mocked(api.getAllMedia).mockResolvedValue([{ id: 20, title: 'Remaining' }] as unknown as Media[]);
         await component.loadData();
 
-        // @ts-expect-error - accessing private state for assertions
         expect(component.state.viewMode).toBe('grid');
     });
 
@@ -566,7 +586,7 @@ describe('MediaView', () => {
         vi.mocked(api.getAllMedia).mockResolvedValue(mockMedia as unknown as Media[]);
         vi.mocked(api.getLogsForMedia).mockResolvedValue([]);
 
-        const component = new MediaView(container);
+        const component = new MediaViewTestHarness(container);
         await renderAndWaitForBrowser(component);
 
         const onDataChange = vi.mocked(MediaLibraryBrowser).mock.calls[0][3];
@@ -574,34 +594,26 @@ describe('MediaView', () => {
         expect(api.getAllMedia).toHaveBeenCalledTimes(2);
 
         await vi.waitFor(() => {
-            // @ts-expect-error - accessing private state for assertions
             expect(component.state.viewMode).toBe('detail');
-            // @ts-expect-error - accessing private state for assertions
             expect(component.state.currentIndex).toBe(1);
         });
 
-        const detailCallbacks = vi.mocked(MediaDetail).mock.calls.at(-1)?.[5];
+        const detailCallbacks = lastMockCallArguments(vi.mocked(MediaDetail).mock.calls, 'MediaDetail')[5];
         detailCallbacks.onNext();
-        // @ts-expect-error - accessing private state for assertions
         await vi.waitFor(() => expect(component.state.currentIndex).toBe(0));
 
         detailCallbacks.onPrev();
-        // @ts-expect-error - accessing private state for assertions
         await vi.waitFor(() => expect(component.state.currentIndex).toBe(1));
 
         detailCallbacks.onNavigate(0);
-        // @ts-expect-error - accessing private state for assertions
         expect(component.state.currentIndex).toBe(0);
 
         detailCallbacks.onBack();
-        // @ts-expect-error - accessing private state for assertions
         await vi.waitFor(() => expect(component.state.viewMode).toBe('grid'));
 
-        // @ts-expect-error - accessing private state for assertions
         component.state.viewMode = 'detail';
         detailCallbacks.onDelete();
         await vi.waitFor(() => expect(api.getAllMedia).toHaveBeenCalledTimes(3));
-        // @ts-expect-error - accessing private state for assertions
         await vi.waitFor(() => expect(component.state.viewMode).toBe('grid'));
     });
 
@@ -644,7 +656,7 @@ describe('MediaView', () => {
             expect(detailProps?.[2]).toEqual(oldLogs);
         });
 
-        const detailCallbacks = vi.mocked(MediaDetail).mock.calls.at(-1)?.[5];
+        const detailCallbacks = lastMockCallArguments(vi.mocked(MediaDetail).mock.calls, 'MediaDetail')[5];
         detailCallbacks.onNext();
 
         await vi.waitFor(() => {
@@ -660,65 +672,57 @@ describe('MediaView', () => {
         vi.mocked(api.getAllMedia).mockResolvedValue(mockMedia as unknown as Media[]);
         vi.mocked(api.getLogsForMedia).mockResolvedValue([]);
 
-        const component = new MediaView(container);
+        const component = new MediaViewTestHarness(container);
         await renderAndWaitForInitialization(component);
 
-        // @ts-expect-error - accessing private state for assertions
         component.state.viewMode = 'detail';
-        // @ts-expect-error - accessing private state for assertions
         component.state.libraryMediaList = mockMedia as unknown as Media[];
-        // @ts-expect-error - accessing private state for assertions
         component.state.detailMediaList = mockMedia as unknown as Media[];
-        // @ts-expect-error - accessing private state for assertions
         component.state.currentIndex = 0;
         component.render();
 
         const input = document.createElement('input');
-        // @ts-expect-error - testing private handler branch coverage
-        component.keyboardHandler({ key: 'ArrowRight', target: input } as KeyboardEvent);
-        // @ts-expect-error - accessing private state for assertions
+        container.appendChild(input);
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
         expect(component.state.currentIndex).toBe(0);
 
         globalThis.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
-        // @ts-expect-error - accessing private state for assertions
         await vi.waitFor(() => expect(component.state.currentIndex).toBe(1));
 
         globalThis.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
-        // @ts-expect-error - accessing private state for assertions
         await vi.waitFor(() => expect(component.state.currentIndex).toBe(0));
 
         globalThis.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-        // @ts-expect-error - accessing private state for assertions
         await vi.waitFor(() => expect(component.state.viewMode).toBe('grid'));
     });
 
     it('handles mouse back-button navigation from detail view', async () => {
         vi.mocked(api.getAllMedia).mockResolvedValue([{ id: 1, title: 'Mouse' }] as unknown as Media[]);
 
-        const component = new MediaView(container);
+        const component = new MediaViewTestHarness(container);
         await renderAndWaitForInitialization(component);
 
-        // @ts-expect-error - accessing private state for assertions
         component.state.viewMode = 'detail';
-        // @ts-expect-error - accessing private state for assertions
         component.state.detailMediaList = [{ id: 1, title: 'Mouse' }] as unknown as Media[];
         component.render();
 
-        const preventDefault = vi.fn();
-        // @ts-expect-error - testing private handler branch coverage
-        component.mouseHandler({ button: 3, preventDefault } as MouseEvent);
+        const mouseEvent = new MouseEvent('mouseup', { button: 3 });
+        const preventDefault = vi.spyOn(mouseEvent, 'preventDefault');
+        globalThis.dispatchEvent(mouseEvent);
 
-        // @ts-expect-error - accessing private state for assertions
         await vi.waitFor(() => expect(component.state.viewMode).toBe('grid'));
         expect(preventDefault).toHaveBeenCalled();
     });
 
     it('persists hide archived changes without reworking other filters', async () => {
         vi.mocked(api.getAllMedia).mockResolvedValue([]);
-        const component = new MediaView(container);
+        const component = new MediaViewTestHarness(container);
         await renderAndWaitForBrowser(component);
 
-        const onFilterChange = vi.mocked(MediaLibraryBrowser).mock.calls[0][4];
+        const onFilterChange = requireDefined(
+            vi.mocked(MediaLibraryBrowser).mock.calls[0][4],
+            'MediaLibraryBrowser onFilterChange callback',
+        );
         onFilterChange({
             statusFilters: ['Ongoing'],
             typeFilters: ['Anime'],
@@ -726,7 +730,6 @@ describe('MediaView', () => {
         });
 
         expect(api.setSetting).toHaveBeenCalledWith(SETTING_KEYS.GRID_HIDE_ARCHIVED, 'true');
-        // @ts-expect-error - accessing private state for assertions
         expect(component.state.libraryFilters).toEqual({
             searchQuery: '',
             statusFilters: ['Ongoing'],
@@ -742,27 +745,32 @@ describe('MediaView', () => {
 
     it('keeps in-memory sort state when a later snapshot still reports the old settings', async () => {
         vi.mocked(api.getAllMedia).mockResolvedValue([]);
-        const component = new MediaView(container);
+        const component = new MediaViewTestHarness(container);
         await renderAndWaitForBrowser(component);
 
-        const onFilterChange = vi.mocked(MediaLibraryBrowser).mock.calls[0][4];
+        const onFilterChange = requireDefined(
+            vi.mocked(MediaLibraryBrowser).mock.calls[0][4],
+            'MediaLibraryBrowser onFilterChange callback',
+        );
         onFilterChange({ groupByType: true });
 
         await component.loadData();
 
-        expect(component.state.libraryFilters.groupByType).toBe(true);
+        expect(component.groupByTypeFilter).toBe(true);
     });
 
     it('stores the preferred layout when the user changes it', async () => {
         vi.mocked(api.getAllMedia).mockResolvedValue([]);
-        const component = new MediaView(container);
+        const component = new MediaViewTestHarness(container);
         await renderAndWaitForBrowser(component);
 
-        const onLayoutChange = vi.mocked(MediaLibraryBrowser).mock.calls[0][5];
+        const onLayoutChange = requireDefined(
+            vi.mocked(MediaLibraryBrowser).mock.calls[0][5],
+            'MediaLibraryBrowser onLayoutChange callback',
+        );
         onLayoutChange('list');
 
         expect(api.setSetting).toHaveBeenCalledWith(SETTING_KEYS.LIBRARY_LAYOUT_MODE, 'list');
-        // @ts-expect-error - accessing private state for assertions
         expect(component.state.preferredLayout).toBe('list');
     });
 
@@ -800,14 +808,16 @@ describe('MediaView', () => {
 
     it('stores the grid zoom when the user changes the cover size', async () => {
         vi.mocked(api.getAllMedia).mockResolvedValue([]);
-        const component = new MediaView(container);
+        const component = new MediaViewTestHarness(container);
         await renderAndWaitForBrowser(component);
 
-        const onGridZoomChange = vi.mocked(MediaLibraryBrowser).mock.calls[0][6];
+        const onGridZoomChange = requireDefined(
+            vi.mocked(MediaLibraryBrowser).mock.calls[0][6],
+            'MediaLibraryBrowser onGridZoomChange callback',
+        );
         onGridZoomChange(70);
 
         expect(api.setSetting).toHaveBeenCalledWith(SETTING_KEYS.LIBRARY_GRID_ZOOM, '70');
-        // @ts-expect-error - accessing private state for assertions
         expect(component.state.gridZoom).toBe(70);
     });
 
@@ -873,7 +883,7 @@ describe('MediaView', () => {
             return null;
         });
 
-        const component = new MediaView(container);
+        const component = new MediaViewTestHarness(container);
         await renderAndWaitForBrowser(component);
         expect(api.getLogs).toHaveBeenCalled();
 
@@ -884,7 +894,6 @@ describe('MediaView', () => {
             isListMetricsLoading: false,
         }));
         expect(api.setSetting).not.toHaveBeenCalledWith(SETTING_KEYS.LIBRARY_LAYOUT_MODE, expect.anything());
-        // @ts-expect-error - accessing private state for assertions
         expect(component.state.preferredLayout).toBe('grid');
     });
 
@@ -916,19 +925,15 @@ describe('MediaView', () => {
         vi.mocked(api.getAllMedia).mockResolvedValue(mockMedia as unknown as Media[]);
         vi.mocked(api.getLogsForMedia).mockResolvedValue([]);
 
-        const component = new MediaView(container);
+        const component = new MediaViewTestHarness(container);
         await renderAndWaitForInitialization(component);
 
-        // @ts-expect-error - accessing private state for assertions
         component.state.viewMode = 'detail';
         await component.resetView();
-        // @ts-expect-error - accessing private state for assertions
         expect(component.state.viewMode).toBe('grid');
 
         await component.jumpToMedia(20);
-        // @ts-expect-error - accessing private state for assertions
         expect(component.state.viewMode).toBe('detail');
-        // @ts-expect-error - accessing private state for assertions
         expect(component.state.currentIndex).toBe(1);
         const detailProps = vi.mocked(MediaDetail).mock.calls.at(-1);
         expect((detailProps?.[3] as Media[]).map((media) => media.id)).toEqual([10, 20]);
@@ -948,7 +953,7 @@ describe('MediaView', () => {
                 settings: librarySettings(),
             }));
         vi.mocked(api.getLogsForMedia).mockResolvedValue([]);
-        const component = new MediaView(container);
+        const component = new MediaViewTestHarness(container);
 
         const oldLoad = component.loadData();
         await vi.waitFor(() => expect(api.getLibrarySnapshot).toHaveBeenCalledTimes(1));
@@ -962,9 +967,7 @@ describe('MediaView', () => {
         });
         await oldLoad;
 
-        // @ts-expect-error - accessing private state for stale-response verification
         expect(component.state.libraryMediaList.map((media: Media) => media.title)).toEqual(['Newest']);
-        // @ts-expect-error - accessing private state for stale-response verification
         expect(component.state.viewMode).toBe('detail');
     });
 
@@ -972,8 +975,8 @@ describe('MediaView', () => {
         const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
         vi.mocked(api.getAllMedia).mockRejectedValue(new Error('load failed'));
 
-        const component = new MediaView(container);
-        // @ts-expect-error - avoiding the render-triggered retry loop for this failure-path test
+        const component = new MediaViewTestHarness(container);
+        // Pre-marking as initialized avoids the render-triggered retry loop on this failure path.
         component.state.isInitialized = true;
         await component.loadData();
 
@@ -981,24 +984,19 @@ describe('MediaView', () => {
             expect(errorSpy).toHaveBeenCalledWith('Failed to load media view content', expect.any(Error));
         });
 
-        // @ts-expect-error - accessing private state for assertions
         expect(component.state.isLoading).toBe(false);
         errorSpy.mockRestore();
     });
 
     it('falls back to browser view if detail rendering has no media', () => {
         vi.mocked(api.getAllMedia).mockResolvedValue([]);
-        const component = new MediaView(container);
-        // @ts-expect-error - accessing private state for assertions
+        const component = new MediaViewTestHarness(container);
         component.state.viewMode = 'detail';
-        // @ts-expect-error - accessing private state for assertions
         component.state.libraryMediaList = [];
-        // @ts-expect-error - accessing private state for assertions
         component.state.isInitialized = true;
 
         component.render();
 
-        // @ts-expect-error - accessing private state for assertions
         expect(component.state.viewMode).toBe('grid');
     });
 });

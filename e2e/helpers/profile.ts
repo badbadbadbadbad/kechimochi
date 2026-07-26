@@ -1,6 +1,7 @@
 /**
  * Profile view helpers.
  */
+import type { ChainablePromiseElement } from 'webdriverio';
 import { Logger } from '../../src/logger';
 import { dismissAlert, setDialogMockPath } from './common.js';
 
@@ -72,10 +73,9 @@ const PROFILE_NAME_INPUT_SELECTOR = '#profile-root input[type="text"]';
 /**
  * Opens the inline profile name editor by triggering the real double-click interaction.
  */
-export async function openProfileNameEditor(): Promise<WebdriverIO.Element> {
+export async function openProfileNameEditor(): Promise<ChainablePromiseElement> {
     const existingInput = $(PROFILE_NAME_INPUT_SELECTOR);
     if (await existingInput.isExisting() && await existingInput.isDisplayed()) {
-        // @ts-expect-error: WDIO v9 typing quirk
         return existingInput;
     }
 
@@ -125,7 +125,6 @@ export async function openProfileNameEditor(): Promise<WebdriverIO.Element> {
 
     const input = $(PROFILE_NAME_INPUT_SELECTOR);
     await input.waitForDisplayed({ timeout: 2000 });
-    // @ts-expect-error: WDIO v9 typing quirk
     return input;
 }
 

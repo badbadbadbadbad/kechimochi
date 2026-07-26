@@ -10,6 +10,10 @@ import { MediaCoverLoader } from '../../../src/media/cover_loader';
 import * as api from '../../../src/api';
 import { Media } from '../../../src/api';
 
+class MediaItemTestHarness extends MediaItem {
+    public declare state: MediaItem['state'];
+}
+
 describe('MediaItem', () => {
     let container: HTMLElement;
 
@@ -46,13 +50,12 @@ describe('MediaItem', () => {
         globalThis.URL.createObjectURL = vi.fn(() => 'blob:abc');
 
         const media = { title: 'T', cover_image: '/path/to/img.jpg', status: 'Active' };
-        const component = new MediaItem(container, media as unknown as Media, vi.fn());
+        const component = new MediaItemTestHarness(container, media as unknown as Media, vi.fn());
         component.render();
-        
+
         // Simulate intersection
         triggerLatestIntersection();
-        
-        // @ts-expect-error - accessing private state
+
         await vi.waitUntil(() => component.state.imgSrc === 'blob:abc');
 
         const img = container.querySelector('img');
@@ -66,11 +69,10 @@ describe('MediaItem', () => {
         mockServices.isDesktop.mockReturnValue(false);
 
         const media = { title: 'Web Item', cover_image: '/path/to/web.jpg', status: 'Active' };
-        const component = new MediaItem(container, media as unknown as Media, vi.fn());
+        const component = new MediaItemTestHarness(container, media as unknown as Media, vi.fn());
 
         triggerLatestIntersection();
 
-        // @ts-expect-error - accessing private state
         await vi.waitUntil(() => component.state.imgSrc === 'https://covers.example/test.jpg');
         expect(mockServices.loadCoverImage).toHaveBeenCalledWith('/path/to/web.jpg');
         expect(api.readFileBytes).not.toHaveBeenCalled();
@@ -81,10 +83,9 @@ describe('MediaItem', () => {
         globalThis.URL.createObjectURL = vi.fn(() => 'blob:eager');
 
         const media = { title: 'Eager', cover_image: '/path/to/eager.jpg', status: 'Active' };
-        const component = new MediaItem(container, media as unknown as Media, vi.fn(), undefined, true);
+        const component = new MediaItemTestHarness(container, media as unknown as Media, vi.fn(), undefined, true);
         component.render();
 
-        // @ts-expect-error - accessing private state
         await vi.waitUntil(() => component.state.imgSrc === 'blob:eager');
 
         expect(api.readFileBytes).toHaveBeenCalledWith('/path/to/eager.jpg');
@@ -96,14 +97,12 @@ describe('MediaItem', () => {
         globalThis.URL.createObjectURL = vi.fn(() => 'blob:cached');
 
         const media = { title: 'Cached', cover_image: '/path/to/cached.jpg', status: 'Active' };
-        const first = new MediaItem(document.createElement('div'), media as unknown as Media, vi.fn());
+        const first = new MediaItemTestHarness(document.createElement('div'), media as unknown as Media, vi.fn());
         triggerLatestIntersection();
-        // @ts-expect-error - accessing private state
         await vi.waitUntil(() => first.state.imgSrc === 'blob:cached');
 
-        const second = new MediaItem(container, media as unknown as Media, vi.fn());
+        const second = new MediaItemTestHarness(container, media as unknown as Media, vi.fn());
         triggerLatestIntersection();
-        // @ts-expect-error - accessing private state
         await vi.waitUntil(() => second.state.imgSrc === 'blob:cached');
 
         expect(api.readFileBytes).toHaveBeenCalledTimes(1);
@@ -140,13 +139,12 @@ describe('MediaItem', () => {
 
         vi.mocked(api.readFileBytes).mockRejectedValue(new Error('File not found'));
         const media = { title: 'T', cover_image: '/bad/path.jpg', status: 'Active' };
-        const component = new MediaItem(container, media as unknown as Media, vi.fn());
-        
+        const component = new MediaItemTestHarness(container, media as unknown as Media, vi.fn());
+
         triggerLatestIntersection();
-        
+
         // Wait a bit for the async image loading to "fail"
         await new Promise(r => setTimeout(r, 10));
-        // @ts-expect-error - accessing private state
         expect(component.state.imgSrc).toBeNull();
 
         consoleSpy.mockRestore();
@@ -161,7 +159,7 @@ describe('MediaItem', () => {
         globalThis.URL.createObjectURL = createObjectUrl;
 
         const media = { title: 'Removed', cover_image: '/path/to/late.jpg', status: 'Active' };
-        const component = new MediaItem(container, media as unknown as Media, vi.fn());
+        const component = new MediaItemTestHarness(container, media as unknown as Media, vi.fn());
         component.render();
         triggerLatestIntersection();
         await vi.waitFor(() => expect(api.readFileBytes).toHaveBeenCalledWith('/path/to/late.jpg'));
@@ -171,7 +169,6 @@ describe('MediaItem', () => {
         await vi.waitFor(() => expect(createObjectUrl).toHaveBeenCalledOnce());
         await new Promise(resolve => setTimeout(resolve, 0));
 
-        // @ts-expect-error - accessing private state
         expect(component.state.imgSrc).toBeNull();
         expect(container.querySelector('img')).toBeNull();
     });

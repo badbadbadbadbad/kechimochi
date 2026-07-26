@@ -21,7 +21,6 @@ async function seedLogsViaCsv(count: number) {
     fs.writeFileSync(csvPath, logs);
 
     await browser.execute(async (path) => {
-        // @ts-expect-error - reaching into Tauri internals for E2E
         await globalThis.__TAURI_INTERNALS__.invoke('import_csv', { filePath: path });
     }, csvPath);
 
@@ -46,7 +45,6 @@ describe('Dashboard Pagination E2E', () => {
         // The single-user fixture starts with seeded activity logs.
         // Clear them so pagination expectations start from an empty dashboard.
         await browser.execute(async () => {
-            // @ts-expect-error - reaching into Tauri internals for E2E setup
             await globalThis.__TAURI_INTERNALS__.invoke('clear_activities');
         });
 

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ActivityCharts } from '../../../src/dashboard/ActivityCharts';
 import { ActivitySummary, Media } from '../../../src/api';
+import type { ChartConfiguration, ChartType } from 'chart.js';
 import Chart from 'chart.js/auto';
 
 vi.mock('chart.js/auto', () => ({
@@ -8,6 +9,19 @@ vi.mock('chart.js/auto', () => ({
         destroy: vi.fn(),
     }))
 }));
+
+type CapturedChartConfiguration = ChartConfiguration<ChartType, number[], string>;
+
+function captureChartConfiguration(callIndex: number): CapturedChartConfiguration {
+    return vi.mocked(Chart).mock.calls[callIndex][1] as CapturedChartConfiguration;
+}
+
+function requireChartLabels(labels: string[] | undefined): string[] {
+    if (labels === undefined) {
+        throw new Error('chart configuration is missing labels');
+    }
+    return labels;
+}
 
 describe('ActivityCharts', () => {
     let container: HTMLElement;
@@ -192,7 +206,7 @@ describe('ActivityCharts', () => {
         component.render();
         await waitForChartConstruction();
 
-        const barChartConfig = vi.mocked(Chart).mock.calls[1][1];
+        const barChartConfig = captureChartConfiguration(1);
 
         expect(barChartConfig.data.labels).toEqual([
             'Jun 08',
@@ -228,11 +242,12 @@ describe('ActivityCharts', () => {
         component.render();
         await waitForChartConstruction();
 
-        const barChartConfig = vi.mocked(Chart).mock.calls[1][1];
+        const barChartConfig = captureChartConfiguration(1);
+        const barChartLabels = requireChartLabels(barChartConfig.data.labels);
 
-        expect(barChartConfig.data.labels).toHaveLength(30);
-        expect(barChartConfig.data.labels[0]).toBe('Jun 01');
-        expect(barChartConfig.data.labels[29]).toBe('Jun 30');
+        expect(barChartLabels).toHaveLength(30);
+        expect(barChartLabels[0]).toBe('Jun 01');
+        expect(barChartLabels[29]).toBe('Jun 30');
         expect(barChartConfig.data.datasets[0].data).toHaveLength(30);
         expect(barChartConfig.data.datasets[0].data[0]).toBe(15);
         expect(barChartConfig.data.datasets[0].data[7]).toBe(30);
@@ -262,7 +277,7 @@ describe('ActivityCharts', () => {
         await waitForChartConstruction();
 
         const chartGrid = container.querySelector('#activity-charts-grid') as HTMLElement;
-        const pieChartConfig = vi.mocked(Chart).mock.calls[0][1];
+        const pieChartConfig = captureChartConfiguration(0);
 
         expect(chartGrid.dataset.rangeStart).toBe('2026-04-27');
         expect(chartGrid.dataset.rangeEnd).toBe('2026-05-03');
@@ -311,8 +326,8 @@ describe('ActivityCharts', () => {
         component.render();
         await waitForChartConstruction();
 
-        const pieConfig = vi.mocked(Chart).mock.calls[0][1];
-        const barConfig = vi.mocked(Chart).mock.calls[1][1];
+        const pieConfig = captureChartConfiguration(0);
+        const barConfig = captureChartConfiguration(1);
         expect(pieConfig.data.datasets[0].data).toEqual([75]);
         expect(barConfig.data.datasets[0].data.slice(0, 2)).toEqual([30, 45]);
     });
@@ -340,8 +355,8 @@ describe('ActivityCharts', () => {
         component.render();
         await waitForChartConstruction();
 
-        const pieChartConfig = vi.mocked(Chart).mock.calls[0][1];
-        const barChartConfig = vi.mocked(Chart).mock.calls[1][1];
+        const pieChartConfig = captureChartConfiguration(0);
+        const barChartConfig = captureChartConfiguration(1);
         expect(pieChartConfig.data.labels).toEqual([
             'Horimiya — Anime',
             'Horimiya — Manga',

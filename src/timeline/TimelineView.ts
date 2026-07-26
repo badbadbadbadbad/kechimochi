@@ -156,7 +156,7 @@ export class TimelineView extends Component<TimelineState> {
         this.updateLoadingIndicator('Could not load timeline events');
     }
 
-    private async loadPage(reset: boolean): Promise<void> {
+    protected async loadPage(reset: boolean): Promise<void> {
         if (!reset && (this.state.isLoading || this.state.isLoadingMore || !this.state.hasMore)) {
             return;
         }
@@ -781,7 +781,7 @@ export class TimelineView extends Component<TimelineState> {
         this.paginationObserver.observe(sentinel);
     }
 
-    private renderTimelineWave(root: HTMLElement, visibleEvents: TimelineEvent[]): void {
+    protected renderTimelineWave(root: HTMLElement, visibleEvents: TimelineEvent[]): void {
         const wave = root.querySelector('.timeline-wave') as SVGSVGElement | null;
         if (!wave) {
             return;
@@ -892,7 +892,7 @@ export class TimelineView extends Component<TimelineState> {
             }
 
             const upperShoulderY = Math.max(0, point.y - shoulder);
-            if (samples[samples.length - 1]?.y !== upperShoulderY) {
+            if (samples.at(-1)?.y !== upperShoulderY) {
                 samples.push({
                     y: upperShoulderY,
                     amplitude: Math.max(minAmplitude * 0.76, crestAmplitude * 0.84),
@@ -972,7 +972,7 @@ export class TimelineView extends Component<TimelineState> {
         return path;
     }
 
-    private getWaveMetric(event: TimelineEvent): number {
+    protected getWaveMetric(event: TimelineEvent): number {
         if (event.kind === 'milestone') {
             if (event.milestoneMinutes > 0) {
                 return event.milestoneMinutes;

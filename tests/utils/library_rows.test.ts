@@ -12,7 +12,7 @@ function makeMedia(overrides: Partial<Media> & { id: number }): Media {
     return {
         uid: `uid-${overrides.id}`,
         title: 'Untitled',
-        media_type: 'Book',
+        default_activity_type: 'Book',
         status: 'Active',
         language: 'Japanese',
         description: '',
