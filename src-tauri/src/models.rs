@@ -428,6 +428,8 @@ pub struct TimelinePageRequest {
     pub search_query: String,
     pub offset: i64,
     pub limit: i64,
+    #[serde(default)]
+    pub anchor_date: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
@@ -472,6 +474,71 @@ pub struct TimelineEvent {
     pub milestone_minutes: i64,
     pub milestone_characters: i64,
     pub same_day_terminal: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum TimelineBucketGranularity {
+    Month,
+    Year,
+}
+
+// No `kind`: that filter is hidden at both bucket levels.
+// `year` is always None at Year granularity, since the frontend hides the control there.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TimelineBucketRequest {
+    pub request_id: u64,
+    pub granularity: TimelineBucketGranularity,
+    pub year: Option<i32>,
+    #[serde(default)]
+    pub search_query: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TimelineBucketHighlight {
+    pub media_id: i64,
+    pub media_title: String,
+    pub media_variant: String,
+    pub cover_image: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TimelineBucketMilestone {
+    pub milestone_id: Option<i64>,
+    pub media_id: i64,
+    pub name: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TimelineBucket {
+    pub key: String,
+    pub start_date: String,
+    pub started_count: i64,
+    pub finished_count: i64,
+    pub paused_count: i64,
+    pub dropped_count: i64,
+    pub milestone_count: i64,
+    pub logged_minutes: i64,
+    pub logged_characters: i64,
+    pub highlights: Vec<TimelineBucketHighlight>,
+    pub highlight_overflow: i64,
+    pub milestones: Vec<TimelineBucketMilestone>,
+    pub milestone_overflow: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TimelineBucketPage {
+    pub request_id: u64,
+    pub granularity: TimelineBucketGranularity,
+    pub available_years: Vec<i32>,
+    pub ambiguous_titles: Vec<String>,
+    pub summary: TimelineSummary,
+    pub buckets: Vec<TimelineBucket>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

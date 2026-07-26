@@ -36,8 +36,8 @@ use models::{
     ActivityLog, ActivitySummary, DailyHeatmap, DashboardHeatmapYearRequest,
     DashboardHeatmapYearResponse, DashboardRangeRequest, DashboardRangeResponse,
     DashboardRecentLogsRequest, DashboardRecentPage, DashboardSnapshot, DashboardSnapshotRequest,
-    LibrarySnapshot, LibrarySnapshotRequest, Media, Milestone, ProfilePicture, TimelineEvent,
-    TimelinePage, TimelinePageRequest,
+    LibrarySnapshot, LibrarySnapshotRequest, Media, Milestone, ProfilePicture, TimelineBucketPage,
+    TimelineBucketRequest, TimelineEvent, TimelinePage, TimelinePageRequest,
 };
 
 // Database state
@@ -900,6 +900,19 @@ async fn get_timeline_page(
     let conn = state.conn.clone();
     run_measured_read(conn, "timeline_page", move |conn| {
         timeline_data::get_timeline_page(conn, &request)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn get_timeline_buckets(
+    state: State<'_, DbState>,
+    request: TimelineBucketRequest,
+) -> Result<TimelineBucketPage, String> {
+    timeline_data::validate_bucket_request(&request)?;
+    let conn = state.conn.clone();
+    run_measured_read(conn, "timeline_buckets", move |conn| {
+        timeline_data::get_timeline_buckets(conn, &request)
     })
     .await
 }
@@ -1878,6 +1891,7 @@ pub fn run() {
             get_logs_for_media,
             get_timeline_events,
             get_timeline_page,
+            get_timeline_buckets,
             get_milestones,
             add_milestone,
             delete_milestone,
