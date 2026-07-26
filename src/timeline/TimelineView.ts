@@ -869,7 +869,7 @@ export class TimelineView extends Component<TimelineState> {
             }
 
             const upperShoulderY = Math.max(0, point.y - shoulder);
-            if (samples[samples.length - 1]?.y !== upperShoulderY) {
+            if (samples.at(-1)?.y !== upperShoulderY) {
                 samples.push({
                     y: upperShoulderY,
                     amplitude: Math.max(minAmplitude * 0.76, crestAmplitude * 0.84),

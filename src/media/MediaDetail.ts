@@ -1,20 +1,48 @@
-import { Logger } from '../logger';
-import { Component } from '../component';
-import { html, escapeAttribute, escapeHTML, rawHtml } from '../html';
-import { Media, ActivitySummary, Milestone, updateMedia, deleteMedia, getSetting, getMilestones, addMilestone, updateMilestone, deleteMilestone, clearMilestones, getLogsForMedia, downloadAndSaveImage } from '../api';
-import { customAlert, customConfirm, customPrompt } from '../modal_base';
-import { showLogActivityModal } from '../activity_modal';
-import { showAddMilestoneModal } from '../milestone_modal';
-import { showJitenSearchModal, showImportMergeModal } from './modal';
-import { isValidImporterUrl, fetchMetadataForUrl } from '../importers';
-import { getServices } from '../services';
-import { MediaCoverLoader } from './cover_loader';
-import { pushBackHandler } from '../back_stack';
-import { MediaLog } from './MediaLog';
-import { setupCopyButton } from '../clipboard';
-import { getCharacterCountFromExtraData, mergeExtraData, normalizeExtraData, removeExtraDataKey, renameExtraDataKey, upsertExtraDataValue } from '../extra_data';
-import { formatHhMm } from '../time';
-import { TRACKING_STATUSES, ACTIVITY_TYPES, MEDIA_STATUS, CONTENT_TYPE_TO_ACTIVITY_TYPE, EVENTS, SETTING_KEYS } from '../constants';
+import {Logger} from '../logger';
+import {Component} from '../component';
+import {escapeAttribute, escapeHTML, html, rawHtml} from '../html';
+import {
+    ActivitySummary,
+    addMilestone,
+    clearMilestones,
+    deleteMedia,
+    deleteMilestone,
+    downloadAndSaveImage,
+    getLogsForMedia,
+    getMilestones,
+    getSetting,
+    Media,
+    Milestone,
+    updateMedia,
+    updateMilestone
+} from '../api';
+import {customAlert, customConfirm, customPrompt} from '../modal_base';
+import {showLogActivityModal} from '../activity_modal';
+import {showAddMilestoneModal} from '../milestone_modal';
+import {showImportMergeModal, showJitenSearchModal} from './modal';
+import {fetchMetadataForUrl, isValidImporterUrl} from '../importers';
+import {getServices} from '../services';
+import {MediaCoverLoader} from './cover_loader';
+import {pushBackHandler} from '../back_stack';
+import {MediaLog} from './MediaLog';
+import {setupCopyButton} from '../clipboard';
+import {
+    getCharacterCountFromExtraData,
+    mergeExtraData,
+    normalizeExtraData,
+    removeExtraDataKey,
+    renameExtraDataKey,
+    upsertExtraDataValue
+} from '../extra_data';
+import {formatHhMm} from '../time';
+import {
+    ACTIVITY_TYPES,
+    CONTENT_TYPE_TO_ACTIVITY_TYPE,
+    EVENTS,
+    MEDIA_STATUS,
+    SETTING_KEYS,
+    TRACKING_STATUSES
+} from '../constants';
 
 type ReadingSpeedSettingKey = typeof SETTING_KEYS.STATS_NOVEL_SPEED | typeof SETTING_KEYS.STATS_MANGA_SPEED | typeof SETTING_KEYS.STATS_VN_SPEED;
 type ReadingSpeedSettings = Record<ReadingSpeedSettingKey, number>;
@@ -817,7 +845,7 @@ export class MediaDetail extends Component<MediaDetailState> {
         statsDiv.style.alignItems = 'center';
 
         const lastLogDate = logs[0].date;
-        const firstLogDate = logs[logs.length - 1].date;
+        const firstLogDate = logs.at(-1)?.date ?? lastLogDate;
         const totalMin = logs.reduce((acc, log) => acc + log.duration_minutes, 0);
         const totalChars = logs.reduce((acc, log) => acc + log.characters, 0);
         const totalStr = formatHhMm(totalMin);
@@ -1236,8 +1264,7 @@ export class MediaDetail extends Component<MediaDetailState> {
 
             if (merged.coverImageUrl && candidate.id) {
                 try {
-                    const newPath = await downloadAndSaveImage(candidate.id, merged.coverImageUrl);
-                    this.state.media.cover_image = newPath;
+                    this.state.media.cover_image = await downloadAndSaveImage(candidate.id, merged.coverImageUrl);
                     MediaCoverLoader.clear();
                     await this.loadImage();
                 } catch (err) {

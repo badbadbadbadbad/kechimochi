@@ -1,12 +1,6 @@
 {
   "extends": "../tsconfig.json",
   "compilerOptions": {
-    "lib": [
-      "ES2022",
-      "DOM",
-      "DOM.Iterable",
-      "ES2023.Array"
-    ],
     "types": [
       "@wdio/globals/types",
       "@wdio/mocha-framework",
