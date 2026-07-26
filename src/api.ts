@@ -31,6 +31,12 @@ export type {
   TimelineEvent,
   TimelinePage,
   TimelinePageRequest,
+  TimelineBucketGranularity,
+  TimelineBucketPage,
+  TimelineBucketRequest,
+  TimelineBucketHighlight,
+  TimelineBucketMilestone,
+  TimelineBucket,
   MediaCsvRow,
   MediaCsvImportSelection,
   MediaConflict,
@@ -78,6 +84,8 @@ import type {
   TimelineEvent,
   TimelinePage,
   TimelinePageRequest,
+  TimelineBucketPage,
+  TimelineBucketRequest,
   MediaCsvImportSelection,
   MediaConflict,
   ActivityCsvImportRequest,
@@ -142,6 +150,9 @@ export function getLogsForMedia(mediaId: number): Promise<ActivitySummary[]> { r
 export function getTimelineEvents(): Promise<TimelineEvent[]> { return getServices().getTimelineEvents(); }
 export function getTimelinePage(request: TimelinePageRequest): Promise<TimelinePage> {
   return getServices().getTimelinePage(request);
+}
+export function getTimelineBuckets(request: TimelineBucketRequest): Promise<TimelineBucketPage> {
+  return getServices().getTimelineBuckets(request);
 }
 
 export function initializeUserDb(fallbackUsername?: string): Promise<void> { return getServices().initializeUserDb(fallbackUsername); }

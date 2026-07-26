@@ -27,6 +27,8 @@ import type {
     TimelineEvent,
     TimelinePage,
     TimelinePageRequest,
+    TimelineBucketPage,
+    TimelineBucketRequest,
     MediaCsvImportSelection,
     MediaConflict,
     ActivityCsvAnalysis,
@@ -120,6 +122,10 @@ export class DesktopServices implements AppServices {
     getTimelinePage(request: TimelinePageRequest): Promise<TimelinePage> {
         return measureTransport('ipc', 'timeline_page', () =>
             invoke('get_timeline_page', { request }));
+    }
+    getTimelineBuckets(request: TimelineBucketRequest): Promise<TimelineBucketPage> {
+        return measureTransport('ipc', 'timeline_buckets', () =>
+            invoke('get_timeline_buckets', { request }));
     }
 
     initializeUserDb(fallbackUsername?: string):Promise<void>            { return invoke('initialize_user_db', { fallbackUsername }); }

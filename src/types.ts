@@ -356,6 +356,7 @@ export interface TimelinePageRequest {
     search_query: string;
     offset: number;
     limit: number;
+    anchor_date?: string;
 }
 
 export interface TimelineSummary {
@@ -375,6 +376,53 @@ export interface TimelinePage {
     ambiguous_titles: string[];
     summary: TimelineSummary;
     events: TimelineEvent[];
+}
+
+export type TimelineBucketGranularity = 'month' | 'year';
+
+export interface TimelineBucketRequest {
+    requestId: number;
+    granularity: TimelineBucketGranularity;
+    year: number | null;
+    searchQuery: string;
+}
+
+export interface TimelineBucketHighlight {
+    mediaId: number;
+    mediaTitle: string;
+    mediaVariant: string;
+    coverImage: string;
+}
+
+export interface TimelineBucketMilestone {
+    milestoneId: number | null;
+    mediaId: number;
+    name: string;
+}
+
+export interface TimelineBucket {
+    key: string;
+    startDate: string;
+    startedCount: number;
+    finishedCount: number;
+    pausedCount: number;
+    droppedCount: number;
+    milestoneCount: number;
+    loggedMinutes: number;
+    loggedCharacters: number;
+    highlights: TimelineBucketHighlight[];
+    highlightOverflow: number;
+    milestones: TimelineBucketMilestone[];
+    milestoneOverflow: number;
+}
+
+export interface TimelineBucketPage {
+    requestId: number;
+    granularity: TimelineBucketGranularity;
+    availableYears: number[];
+    ambiguousTitles: string[];
+    summary: TimelineSummary;
+    buckets: TimelineBucket[];
 }
 
 export interface Milestone {
