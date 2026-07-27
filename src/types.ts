@@ -356,7 +356,6 @@ export interface TimelinePageRequest {
     search_query: string;
     offset: number;
     limit: number;
-    anchor_date?: string;
 }
 
 export interface TimelineSummary {

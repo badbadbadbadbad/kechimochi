@@ -1913,7 +1913,6 @@ mod tests {
                 search_query: "Timeline Handler".to_string(),
                 offset: 0,
                 limit: 1,
-                anchor_date: None,
             }),
         )
         .await

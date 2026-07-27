@@ -428,8 +428,6 @@ pub struct TimelinePageRequest {
     pub search_query: String,
     pub offset: i64,
     pub limit: i64,
-    #[serde(default)]
-    pub anchor_date: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]

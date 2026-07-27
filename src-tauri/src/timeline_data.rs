@@ -447,23 +447,16 @@ fn build_page(events: Vec<TimelineEvent>, request: &TimelinePageRequest) -> Time
 
     let summary = summarize(&filtered);
     let total_count = i64::try_from(filtered.len()).unwrap_or(i64::MAX);
-    let start = match request.anchor_date.as_deref() {
-        // Events are sorted date-desc, so the first event with `date <= anchor` is the newest
-        // event at or before the anchor — the top of the window we want to land on.
-        Some(anchor) => filtered
-            .iter()
-            .position(|event| event.date.as_str() <= anchor)
-            .unwrap_or(filtered.len()),
-        None => usize::try_from(request.offset).unwrap_or(usize::MAX),
-    }
-    .min(filtered.len());
+    let start = usize::try_from(request.offset)
+        .unwrap_or(usize::MAX)
+        .min(filtered.len());
     let page_size = usize::try_from(request.limit).unwrap_or_default();
     let end = start.saturating_add(page_size).min(filtered.len());
     let page_events = filtered[start..end].to_vec();
 
     TimelinePage {
         request_id: request.request_id,
-        offset: i64::try_from(start).unwrap_or(i64::MAX),
+        offset: request.offset,
         limit: request.limit,
         total_count,
         all_event_count,
@@ -850,7 +843,6 @@ mod tests {
             search_query: String::new(),
             offset: 0,
             limit: MAX_TIMELINE_PAGE_SIZE,
-            anchor_date: None,
         };
         assert!(validate_page_request(&request).is_ok());
         assert!(validate_page_request(&TimelinePageRequest {
@@ -918,8 +910,7 @@ mod tests {
                 search_query: "completed".to_string(),
                 offset: 0,
                 limit: 2,
-                anchor_date: None,
-            },
+                },
         )
         .unwrap()
         .value;
@@ -969,8 +960,7 @@ mod tests {
                 search_query: String::new(),
                 offset: 0,
                 limit: MAX_TIMELINE_PAGE_SIZE,
-                anchor_date: None,
-            },
+                },
         )
         .unwrap()
         .value;
@@ -1021,18 +1011,6 @@ mod tests {
         }
     }
 
-    fn page_request(anchor_date: Option<&str>, offset: i64) -> TimelinePageRequest {
-        TimelinePageRequest {
-            request_id: 1,
-            year: None,
-            kind: None,
-            search_query: String::new(),
-            offset,
-            limit: MAX_TIMELINE_PAGE_SIZE,
-            anchor_date: anchor_date.map(str::to_string),
-        }
-    }
-
     fn bucket_request(
         granularity: TimelineBucketGranularity,
         year: Option<i32>,
@@ -1044,82 +1022,6 @@ mod tests {
             year,
             search_query: search_query.to_string(),
         }
-    }
-
-    fn seed_three_dated_events(name: &str) -> (tempfile::TempDir, Connection) {
-        let directory = tempfile::tempdir().unwrap();
-        let conn = db::init_db(directory.path().to_path_buf(), Some(name)).unwrap();
-        for (title, date) in [
-            ("Alpha", "2026-01-10"),
-            ("Beta", "2026-02-15"),
-            ("Gamma", "2026-03-20"),
-        ] {
-            let media_id = db::add_media_with_id(&conn, &media(title, "Ongoing")).unwrap();
-            db::add_log(
-                &conn,
-                &ActivityLog {
-                    id: None,
-                    media_id,
-                    duration_minutes: 10,
-                    characters: 0,
-                    date: date.to_string(),
-                    activity_type: "Reading".to_string(),
-                    notes: String::new(),
-                },
-            )
-            .unwrap();
-        }
-        (directory, conn)
-    }
-
-    #[test]
-    fn anchor_seek_lands_on_exact_event_date() {
-        let (_directory, conn) = seed_three_dated_events("anchor-exact");
-        let page = get_timeline_page(&conn, &page_request(Some("2026-02-15"), 0))
-            .unwrap()
-            .value;
-        assert_eq!(page.offset, 1);
-        assert_eq!(page.events[0].media_title, "Beta");
-    }
-
-    #[test]
-    fn anchor_seek_between_dates_lands_on_next_older_event() {
-        let (_directory, conn) = seed_three_dated_events("anchor-between");
-        let page = get_timeline_page(&conn, &page_request(Some("2026-03-01"), 0))
-            .unwrap()
-            .value;
-        assert_eq!(page.offset, 1);
-        assert_eq!(page.events[0].media_title, "Beta");
-    }
-
-    #[test]
-    fn anchor_seek_newer_than_everything_returns_offset_zero() {
-        let (_directory, conn) = seed_three_dated_events("anchor-newer");
-        let page = get_timeline_page(&conn, &page_request(Some("2026-04-01"), 0))
-            .unwrap()
-            .value;
-        assert_eq!(page.offset, 0);
-        assert_eq!(page.events[0].media_title, "Gamma");
-    }
-
-    #[test]
-    fn anchor_seek_older_than_everything_returns_empty_page_at_total_count() {
-        let (_directory, conn) = seed_three_dated_events("anchor-older");
-        let page = get_timeline_page(&conn, &page_request(Some("2020-01-01"), 0))
-            .unwrap()
-            .value;
-        assert_eq!(page.offset, page.total_count);
-        assert!(page.events.is_empty());
-    }
-
-    #[test]
-    fn anchor_seek_overrides_nonzero_offset() {
-        let (_directory, conn) = seed_three_dated_events("anchor-overrides-offset");
-        let page = get_timeline_page(&conn, &page_request(Some("2026-03-20"), 2))
-            .unwrap()
-            .value;
-        assert_eq!(page.offset, 0);
-        assert_eq!(page.events[0].media_title, "Gamma");
     }
 
     #[test]
