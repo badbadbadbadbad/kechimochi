@@ -1,8 +1,21 @@
 /**
  * Pure bucket-row formatting for the `month` / `year` timeline zoom levels. No DOM.
  */
-import type { TimelineBucket, TimelineEventKind } from '../types';
+import type { TimelineBucket, TimelineBucketGranularity, TimelineEventKind, TimelineSummary } from '../types';
 import { formatStatsDuration } from '../time';
+
+export const EMPTY_TIMELINE_SUMMARY: TimelineSummary = {
+    total_minutes: 0,
+    completed_titles: 0,
+    total_characters: 0,
+    filtered_media_count: 0,
+};
+
+const BUCKET_MONTH_LABEL_FORMATTER = new Intl.DateTimeFormat('en-US', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+});
 
 export interface TimelineBucketPip {
     kind: TimelineEventKind;
@@ -37,16 +50,75 @@ export function getTimelineBucketPips(bucket: TimelineBucket): TimelineBucketPip
         }));
 }
 
-export function formatTimelineBucketTotals(bucket: TimelineBucket): string {
-    const duration = formatStatsDuration(bucket.loggedMinutes);
-    const characters = bucket.loggedCharacters.toLocaleString();
-    return `${duration} · ${characters} chars logged`;
+export function getTimelineBucketDominantKind(bucket: TimelineBucket): TimelineEventKind | null {
+    let dominant: TimelineBucketPipNoun | null = null;
+    for (const candidate of buildTimelineBucketPipNouns(bucket)) {
+        if (candidate.count > 0 && (dominant === null || candidate.count > dominant.count)) {
+            dominant = candidate;
+        }
+    }
+    return dominant?.kind ?? null;
 }
 
-export function formatTimelineBucketCoverOverflowLabel(highlightOverflow: number): string | null {
-    return highlightOverflow > 0 ? `+${highlightOverflow}` : null;
+export function buildTimelineBucketTotalsParts(bucket: TimelineBucket): string[] {
+    return [
+        formatStatsDuration(bucket.loggedMinutes, true),
+        `${bucket.loggedCharacters.toLocaleString()} chars logged`,
+    ];
+}
+
+export function formatTimelineBucketCoverOverflowLabel(overflowCount: number, anyCoverVisible: boolean): string | null {
+    if (overflowCount <= 0) {
+        return null;
+    }
+    if (anyCoverVisible) {
+        return `+${overflowCount}`;
+    }
+    return `${overflowCount} ${overflowCount === 1 ? 'title' : 'titles'}`;
+}
+
+export const TIMELINE_BUCKET_COVER_ROWS: Record<TimelineBucketGranularity, number> = {
+    month: 1,
+    year: 2,
+};
+
+export interface TimelineBucketCoverFitInput {
+    availableWidth: number;
+    coverWidth: number;
+    coverGap: number;
+    maxRows: number;
+    renderedCount: number;
+    distinctMediaCount: number;
+}
+
+export interface TimelineBucketCoverFit {
+    visibleCount: number;
+    overflowCount: number;
+}
+
+export function fitTimelineBucketCovers(input: TimelineBucketCoverFitInput): TimelineBucketCoverFit {
+    const slotWidth = input.coverWidth + input.coverGap;
+    const perRow = slotWidth > 0
+        ? Math.max(1, Math.floor((input.availableWidth + input.coverGap) / slotWidth))
+        : 1;
+    const capacity = Math.max(1, perRow * Math.max(1, input.maxRows));
+
+    let visibleCount = Math.min(input.renderedCount, input.distinctMediaCount, capacity);
+    let overflowCount = Math.max(0, input.distinctMediaCount - visibleCount);
+    if (overflowCount > 0 && visibleCount + 1 > capacity) {
+        visibleCount = Math.min(input.renderedCount, Math.max(1, capacity - 1));
+        overflowCount = input.distinctMediaCount - visibleCount;
+    }
+    return { visibleCount, overflowCount };
 }
 
 export function formatTimelineBucketMilestoneOverflowLabel(milestoneOverflow: number): string | null {
     return milestoneOverflow > 0 ? `+${milestoneOverflow} more` : null;
+}
+
+export function formatTimelineBucketLabel(bucket: TimelineBucket, granularity: TimelineBucketGranularity): string {
+    if (granularity === 'year') {
+        return bucket.key;
+    }
+    return BUCKET_MONTH_LABEL_FORMATTER.format(new Date(`${bucket.startDate}T00:00:00Z`));
 }

@@ -1,5 +1,6 @@
 import { vi } from 'vitest';
 import { STORAGE_KEYS, SETTING_KEYS } from '../../src/constants';
+import { EMPTY_TIMELINE_SUMMARY } from '../../src/timeline/timeline_buckets';
 
 type ActivitySummary = import('../../src/api').ActivitySummary;
 type DashboardSnapshotRequest = import('../../src/types').DashboardSnapshotRequest;
@@ -112,7 +113,7 @@ function defaultTimelinePage(request: TimelinePageRequest) {
         has_more: false,
         available_years: [],
         ambiguous_titles: [],
-        summary: { total_minutes: 0, completed_titles: 0, total_characters: 0 },
+        summary: EMPTY_TIMELINE_SUMMARY,
         events: [],
     };
 }

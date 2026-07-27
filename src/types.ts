@@ -363,6 +363,7 @@ export interface TimelineSummary {
     total_minutes: number;
     completed_titles: number;
     total_characters: number;
+    filtered_media_count: number;
 }
 
 export interface TimelinePage {
@@ -411,7 +412,7 @@ export interface TimelineBucket {
     loggedMinutes: number;
     loggedCharacters: number;
     highlights: TimelineBucketHighlight[];
-    highlightOverflow: number;
+    distinctMediaCount: number;
     milestones: TimelineBucketMilestone[];
     milestoneOverflow: number;
 }

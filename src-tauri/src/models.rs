@@ -437,6 +437,7 @@ pub struct TimelineSummary {
     pub total_minutes: i64,
     pub completed_titles: i64,
     pub total_characters: i64,
+    pub filtered_media_count: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -525,7 +526,7 @@ pub struct TimelineBucket {
     pub logged_minutes: i64,
     pub logged_characters: i64,
     pub highlights: Vec<TimelineBucketHighlight>,
-    pub highlight_overflow: i64,
+    pub distinct_media_count: i64,
     pub milestones: Vec<TimelineBucketMilestone>,
     pub milestone_overflow: i64,
 }

@@ -1,7 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import * as api from '../../src/api';
-import type { TimelineEvent, TimelinePage, TimelinePageRequest } from '../../src/types';
+import type {
+    TimelineBucket,
+    TimelineBucketPage,
+    TimelineBucketRequest,
+    TimelineEvent,
+    TimelinePage,
+    TimelinePageRequest,
+} from '../../src/types';
 import { TimelineView } from '../../src/timeline/TimelineView';
 import { Logger } from '../../src/logger';
 
@@ -12,6 +19,9 @@ const coverMocks = vi.hoisted(() => ({
 
 vi.mock('../../src/api', () => ({
     getTimelinePage: vi.fn(),
+    getTimelineBuckets: vi.fn(),
+    getSetting: vi.fn(),
+    setSetting: vi.fn(),
 }));
 
 vi.mock('../../src/media/cover_loader', () => ({
@@ -25,12 +35,12 @@ class TestableTimelineView extends TimelineView {
         return super.loadPage(reset);
     }
 
-    public override renderTimelineWave(root: HTMLElement, events: TimelineEvent[]): void {
-        super.renderTimelineWave(root, events);
+    public override loadBuckets(forceRefresh: boolean): Promise<void> {
+        return super.loadBuckets(forceRefresh);
     }
 
-    public override getWaveMetric(event: TimelineEvent): number {
-        return super.getWaveMetric(event);
+    public override renderTimelineWave(root: HTMLElement, waveMetrics: number[]): void {
+        super.renderTimelineWave(root, waveMetrics);
     }
 }
 
@@ -101,14 +111,17 @@ const sampleEvents: TimelineEvent[] = [
 function summarize(events: TimelineEvent[]): TimelinePage['summary'] {
     const media = new Map<number, TimelineEvent>();
     const completed = new Set<number>();
+    const filtered = new Set<number>();
     for (const event of events) {
         if (!media.has(event.mediaId)) media.set(event.mediaId, event);
         if (event.kind === 'finished') completed.add(event.mediaId);
+        filtered.add(event.mediaId);
     }
     return {
         total_minutes: Array.from(media.values()).reduce((total, event) => total + event.totalMinutes, 0),
         completed_titles: completed.size,
         total_characters: Array.from(media.values()).reduce((total, event) => total + event.totalCharacters, 0),
+        filtered_media_count: filtered.size,
     };
 }
 
@@ -130,6 +143,41 @@ function createPage(
         ambiguous_titles: [],
         summary: summarize(events),
         events,
+        ...overrides,
+    };
+}
+
+function createBucket(overrides: Partial<TimelineBucket> = {}): TimelineBucket {
+    return {
+        key: '2024-03',
+        startDate: '2024-03-01',
+        startedCount: 1,
+        finishedCount: 0,
+        pausedCount: 0,
+        droppedCount: 0,
+        milestoneCount: 0,
+        loggedMinutes: 60,
+        loggedCharacters: 0,
+        highlights: [],
+        distinctMediaCount: 0,
+        milestones: [],
+        milestoneOverflow: 0,
+        ...overrides,
+    };
+}
+
+function createBucketPage(
+    request: TimelineBucketRequest,
+    buckets: TimelineBucket[],
+    overrides: Partial<TimelineBucketPage> = {},
+): TimelineBucketPage {
+    return {
+        requestId: request.requestId,
+        granularity: request.granularity,
+        availableYears: [2024, 2023],
+        ambiguousTitles: [],
+        summary: { total_minutes: 0, completed_titles: 0, total_characters: 0, filtered_media_count: 0 },
+        buckets,
         ...overrides,
     };
 }
@@ -161,6 +209,9 @@ describe('TimelineView', () => {
         coverMocks.load.mockResolvedValue(null);
         coverMocks.getCached.mockReturnValue(null);
         vi.mocked(api.getTimelinePage).mockImplementation(async request => createPage(request, sampleEvents));
+        vi.mocked(api.getTimelineBuckets).mockImplementation(async request => createBucketPage(request, [createBucket()]));
+        vi.mocked(api.getSetting).mockResolvedValue(null);
+        vi.mocked(api.setSetting).mockResolvedValue(undefined);
         vi.stubGlobal('matchMedia', vi.fn(() => ({
             matches: false,
             media: '(max-width: 1024px)',
@@ -208,7 +259,7 @@ describe('TimelineView', () => {
         expect(text).toContain('Reached "Chapter 10"');
         expect(text).toContain('Put Game B on pause');
         expect(text).toContain('Dropped Show C');
-        expect(text).toContain('5h0min');
+        expect(text).toContain('5h');
         expect(text).toContain('Characters tracked');
     });
 
@@ -399,7 +450,7 @@ describe('TimelineView', () => {
         globalThis.removeEventListener('app-navigate', navigate);
     });
 
-    it('skips the decorative wave in compact layout', () => {
+    function stubNarrowViewport(): void {
         vi.stubGlobal('matchMedia', vi.fn(() => ({
             matches: true,
             media: '(max-width: 1024px)',
@@ -408,13 +459,368 @@ describe('TimelineView', () => {
             addEventListener: vi.fn(),
             removeEventListener: vi.fn(),
         })));
-        const view = new TestableTimelineView(container);
-        const root = document.createElement('div');
-        root.innerHTML = '<section class="timeline-shell"><svg class="timeline-wave"><path /></svg></section>';
-        container.appendChild(root);
+    }
 
-        view.renderTimelineWave(root, [createEvent(), createEvent({ mediaId: 2 })]);
+    function createWaveRoot(): HTMLElement {
+        const root = document.createElement('div');
+        root.innerHTML = '<section class="timeline-shell"><svg class="timeline-wave"></svg></section>';
+        container.appendChild(root);
+        return root;
+    }
+
+    const WAVE_ROOT_WIDTH = 800;
+    const WAVE_ROOT_HEIGHT = 600;
+    const WAVE_NODE_SIZE = 12;
+
+    function stubRect(element: HTMLElement, left: number, top: number, width: number, height: number): void {
+        element.getBoundingClientRect = () => ({
+            left,
+            top,
+            width,
+            height,
+            right: left + width,
+            bottom: top + height,
+            x: left,
+            y: top,
+            toJSON: () => ({}),
+        }) as DOMRect;
+    }
+
+    /** happy-dom reports zeroed rects, so the wave needs stubbed geometry to say anything. */
+    function renderMeasuredWave(view: TestableTimelineView, nodeCount: number, waveMetrics: number[]): string {
+        const root = createWaveRoot();
+        Object.defineProperty(root, 'clientWidth', { value: WAVE_ROOT_WIDTH, configurable: true });
+        Object.defineProperty(root, 'clientHeight', { value: WAVE_ROOT_HEIGHT, configurable: true });
+        stubRect(root, 0, 0, WAVE_ROOT_WIDTH, WAVE_ROOT_HEIGHT);
+
+        const shell = root.querySelector('.timeline-shell')!;
+        for (let index = 0; index < nodeCount; index += 1) {
+            shell.insertAdjacentHTML('beforeend', '<span class="timeline-compact-node"></span>');
+        }
+        for (const node of root.querySelectorAll<HTMLElement>('.timeline-compact-node')) {
+            stubRect(node, (WAVE_ROOT_WIDTH - WAVE_NODE_SIZE) / 2, WAVE_ROOT_HEIGHT / 2, WAVE_NODE_SIZE, WAVE_NODE_SIZE);
+        }
+
+        view.renderTimelineWave(root, waveMetrics);
+        return root.querySelector('.timeline-wave')!.innerHTML;
+    }
+
+    it('hides the decorative wave at the detailed zoom level on a narrow viewport', () => {
+        stubNarrowViewport();
+        const view = new TestableTimelineView(container);
+        const root = createWaveRoot();
+
+        view.renderTimelineWave(root, [20, 20]);
 
         expect(root.querySelector('.timeline-wave')?.innerHTML).toBe('');
+    });
+
+    it('renders the decorative wave at the compact zoom level on a narrow viewport', () => {
+        stubNarrowViewport();
+        const view = new TestableTimelineView(container);
+        view.state.zoomLevel = 'compact';
+        const root = createWaveRoot();
+
+        view.renderTimelineWave(root, [20, 20]);
+
+        expect(root.querySelector('.timeline-wave')?.innerHTML).toContain('timeline-wave-body');
+    });
+
+    it('renders a flat wave baseline when no rows are on screen', () => {
+        const view = new TestableTimelineView(container);
+        const root = createWaveRoot();
+
+        view.renderTimelineWave(root, []);
+
+        expect(root.querySelector('.timeline-wave')?.innerHTML).toContain('timeline-wave-body');
+    });
+
+    const RIGHT_BODY_PATH_MARKER = 'timeline-wave-body-right" d="';
+
+    /** Widest horizontal reach from the centre line among the path points in a band of rows. */
+    function measureWaveReach(wave: string, fromY: number, toY: number): number {
+        const pathStart = wave.indexOf(RIGHT_BODY_PATH_MARKER);
+        const path = pathStart === -1
+            ? ''
+            : wave.slice(pathStart + RIGHT_BODY_PATH_MARKER.length, wave.indexOf('"', pathStart + RIGHT_BODY_PATH_MARKER.length));
+        // Every command in this path (M, L, C) carries an even number of coordinates, so the
+        // numeric tokens pair up as (x, y) in order.
+        const coordinates = path
+            .split(' ')
+            .filter(token => token !== '')
+            .map(Number)
+            .filter(value => !Number.isNaN(value));
+        let reach = 0;
+        for (let index = 0; index + 1 < coordinates.length; index += 2) {
+            const [x, y] = [coordinates[index], coordinates[index + 1]];
+            if (y >= fromY && y <= toY) {
+                reach = Math.max(reach, x - WAVE_ROOT_WIDTH / 2);
+            }
+        }
+        return reach;
+    }
+
+    it('calms the wave towards the bottom edge below a single loud row', () => {
+        const view = new TestableTimelineView(container);
+
+        const wave = renderMeasuredWave(view, 1, [500]);
+
+        const reachAtRow = measureWaveReach(wave, WAVE_ROOT_HEIGHT * 0.4, WAVE_ROOT_HEIGHT * 0.6);
+        const reachAtBottom = measureWaveReach(wave, WAVE_ROOT_HEIGHT * 0.95, WAVE_ROOT_HEIGHT);
+        expect(reachAtRow).toBeGreaterThan(0);
+        expect(reachAtBottom).toBeLessThan(reachAtRow / 2);
+    });
+
+    it('shapes the wave around a single row instead of falling back to the baseline', () => {
+        const view = new TestableTimelineView(container);
+
+        const baselineWave = renderMeasuredWave(view, 0, []);
+        const singleRowWave = renderMeasuredWave(view, 1, [500]);
+
+        expect(singleRowWave).not.toBe(baselineWave);
+    });
+
+    describe('semantic zoom', () => {
+        async function zoomOutOnce(container: HTMLElement): Promise<void> {
+            container.querySelector<HTMLButtonElement>('#btn-timeline-zoom-out')!.click();
+            await vi.waitFor(() => expect(container.querySelector('#timeline-root')?.getAttribute('aria-busy')).not.toBe('true'));
+        }
+
+        function getSelectedOptionValue(select: HTMLSelectElement | null): string | undefined {
+            if (!select) return undefined;
+            return Array.from(select.querySelectorAll('option')).find(option => option.hasAttribute('selected'))?.value;
+        }
+
+        it('renders compact rows with no covers after zooming out from detailed', async () => {
+            coverMocks.getCached.mockReturnValue('blob:cached-cover');
+            vi.mocked(api.getTimelinePage).mockImplementation(async request => createPage(request, [
+                createEvent({ coverImage: '/covers/a.jpg' }),
+            ]));
+            const view = new TimelineView(container);
+            await renderAndLoad(view);
+            await vi.waitFor(() => expect(container.querySelectorAll('.timeline-entry')).toHaveLength(1));
+
+            await zoomOutOnce(container);
+
+            await vi.waitFor(() => expect(container.querySelectorAll('.timeline-compact-row')).toHaveLength(1));
+            expect(container.querySelectorAll('.timeline-entry')).toHaveLength(0);
+            expect(container.querySelectorAll('.timeline-cover-shell')).toHaveLength(0);
+            expect(coverMocks.load).not.toHaveBeenCalled();
+        });
+
+        it('renders bucket rows from getTimelineBuckets after zooming out twice', async () => {
+            vi.mocked(api.getTimelineBuckets).mockImplementation(async request => createBucketPage(request, [
+                createBucket({ key: '2024-03', startDate: '2024-03-01' }),
+                createBucket({ key: '2024-02', startDate: '2024-02-01' }),
+            ]));
+            const view = new TimelineView(container);
+            await renderAndLoad(view);
+            await vi.waitFor(() => expect(container.querySelectorAll('.timeline-entry')).toHaveLength(5));
+
+            await zoomOutOnce(container);
+            await zoomOutOnce(container);
+
+            await vi.waitFor(() => expect(container.querySelectorAll('.timeline-bucket-row')).toHaveLength(2));
+            expect(container.querySelector('.timeline-bucket-label')?.textContent).toBe('March 2024');
+        });
+
+        it('shows time and characters for a compact row and omits whichever is zero', async () => {
+            vi.mocked(api.getTimelinePage).mockImplementation(async request => createPage(request, [
+                createEvent({ kind: 'finished', totalMinutes: 125, totalCharacters: 1234 }),
+                createEvent({
+                    kind: 'paused', mediaId: 2, totalMinutes: 120, totalCharacters: 0,
+                }),
+                createEvent({
+                    kind: 'milestone', mediaId: 3, milestoneMinutes: 0, milestoneCharacters: 500,
+                }),
+            ]));
+            const view = new TimelineView(container);
+            await renderAndLoad(view);
+            await vi.waitFor(() => expect(container.querySelectorAll('.timeline-entry')).toHaveLength(3));
+
+            await zoomOutOnce(container); // detailed -> compact
+            await vi.waitFor(() => expect(container.querySelectorAll('.timeline-compact-row')).toHaveLength(3));
+
+            const metricsByRow = Array.from(container.querySelectorAll('.timeline-compact-row'))
+                .map(row => Array.from(row.querySelectorAll('.timeline-compact-metric'))
+                    .map(node => node.textContent));
+            expect(metricsByRow).toEqual([['2h 5m', '1,234 chars'], ['2h'], ['500 chars']]);
+        });
+
+        it('puts the title left of the axis and the state cluster right in a compact row', async () => {
+            const view = new TimelineView(container);
+            await renderAndLoad(view);
+            await vi.waitFor(() => expect(container.querySelectorAll('.timeline-entry')).toHaveLength(5));
+
+            await zoomOutOnce(container); // detailed -> compact
+            await vi.waitFor(() => expect(container.querySelectorAll('.timeline-compact-row')).toHaveLength(5));
+
+            const row = container.querySelector('.timeline-compact-row')!;
+            expect(row.firstElementChild?.className).toContain('timeline-compact-detail');
+            expect(row.lastElementChild?.className).toContain('timeline-compact-meta');
+        });
+
+        it('groups month buckets under a year marker but emits none at year granularity', async () => {
+            vi.mocked(api.getTimelineBuckets).mockImplementation(async request => createBucketPage(request, [
+                createBucket({ key: '2024-03', startDate: '2024-03-01' }),
+                createBucket({ key: '2024-02', startDate: '2024-02-01' }),
+                createBucket({ key: '2023-12', startDate: '2023-12-01' }),
+            ]));
+            const view = new TimelineView(container);
+            await renderAndLoad(view);
+            await vi.waitFor(() => expect(container.querySelectorAll('.timeline-entry')).toHaveLength(5));
+
+            await zoomOutOnce(container); // detailed -> compact
+            await zoomOutOnce(container); // compact -> month
+            await vi.waitFor(() => expect(container.querySelectorAll('.timeline-bucket-row')).toHaveLength(3));
+            expect(
+                Array.from(container.querySelectorAll('.timeline-month-marker .timeline-month-label-text'))
+                    .map(node => node.textContent),
+            ).toEqual(['2024', '2023']);
+
+            vi.mocked(api.getTimelineBuckets).mockImplementation(async request => createBucketPage(request, [
+                createBucket({ key: '2024', startDate: '2024-01-01' }),
+                createBucket({ key: '2023', startDate: '2023-01-01' }),
+            ]));
+            await zoomOutOnce(container); // month -> year
+            await vi.waitFor(() => expect(container.querySelectorAll('.timeline-bucket-row')).toHaveLength(2));
+            expect(container.querySelectorAll('.timeline-month-marker')).toHaveLength(0);
+        });
+
+        it('shows a kind-specific summary label and count once the Kind filter is set, reverting at bucket levels', async () => {
+            const view = new TimelineView(container);
+            await renderAndLoad(view);
+            await vi.waitFor(() => expect(container.querySelector('#timeline-kind-filter')).not.toBeNull());
+
+            function summaryValueFor(label: string): string | undefined {
+                const item = Array.from(container.querySelectorAll('.timeline-summary-item')).find(
+                    candidate => candidate.querySelector('.timeline-summary-label')?.textContent === label,
+                );
+                return item?.querySelector('.timeline-summary-value')?.textContent ?? undefined;
+            }
+
+            expect(summaryValueFor('Completed titles')).toBeDefined();
+
+            const kindFilter = container.querySelector<HTMLSelectElement>('#timeline-kind-filter')!;
+            kindFilter.value = 'paused';
+            kindFilter.dispatchEvent(new Event('change'));
+            await vi.waitFor(() => expect(api.getTimelinePage).toHaveBeenLastCalledWith(
+                expect.objectContaining({ kind: 'paused' }),
+            ));
+
+            await vi.waitFor(() => expect(summaryValueFor('Paused titles')).toBe('4'));
+            expect(summaryValueFor('Completed titles')).toBeUndefined();
+
+            await zoomOutOnce(container); // detailed -> compact
+            await zoomOutOnce(container); // compact -> month
+            await vi.waitFor(() => expect(container.querySelectorAll('.timeline-bucket-row').length).toBeGreaterThan(0));
+
+            expect(summaryValueFor('Completed titles')).toBeDefined();
+            expect(summaryValueFor('Paused titles')).toBeUndefined();
+        });
+
+        it('hides Kind at month and year and hides Year only at year, preserving prior selections', async () => {
+            const view = new TimelineView(container);
+            await renderAndLoad(view);
+            await vi.waitFor(() => expect(container.querySelector('#timeline-kind-filter')).not.toBeNull());
+
+            const kindFilter = container.querySelector<HTMLSelectElement>('#timeline-kind-filter')!;
+            kindFilter.value = 'paused';
+            kindFilter.dispatchEvent(new Event('change'));
+            await vi.waitFor(() => expect(api.getTimelinePage).toHaveBeenLastCalledWith(
+                expect.objectContaining({ kind: 'paused' }),
+            ));
+
+            const yearFilter = container.querySelector<HTMLSelectElement>('#timeline-year-filter')!;
+            yearFilter.value = '2024';
+            yearFilter.dispatchEvent(new Event('change'));
+            await vi.waitFor(() => expect(api.getTimelinePage).toHaveBeenLastCalledWith(
+                expect.objectContaining({ year: 2024 }),
+            ));
+
+            await zoomOutOnce(container); // detailed -> compact
+            expect(getSelectedOptionValue(container.querySelector('#timeline-kind-filter'))).toBe('paused');
+            expect(getSelectedOptionValue(container.querySelector('#timeline-year-filter'))).toBe('2024');
+
+            await zoomOutOnce(container); // compact -> month
+            await vi.waitFor(() => expect(container.querySelectorAll('.timeline-bucket-row').length).toBeGreaterThan(0));
+            expect(container.querySelector('#timeline-kind-filter')).toBeNull();
+            expect(getSelectedOptionValue(container.querySelector('#timeline-year-filter'))).toBe('2024');
+
+            await zoomOutOnce(container); // month -> year
+            await vi.waitFor(() => expect(api.getTimelineBuckets).toHaveBeenLastCalledWith(
+                expect.objectContaining({ granularity: 'year' }),
+            ));
+            expect(container.querySelector('#timeline-kind-filter')).toBeNull();
+            expect(container.querySelector('#timeline-year-filter')).toBeNull();
+
+            container.querySelector<HTMLButtonElement>('#btn-timeline-zoom-in')!.click(); // year -> month
+            await vi.waitFor(() => expect(container.querySelector('#timeline-year-filter')).not.toBeNull());
+            expect(getSelectedOptionValue(container.querySelector('#timeline-year-filter'))).toBe('2024');
+            expect(container.querySelector('#timeline-kind-filter')).toBeNull();
+
+            container.querySelector<HTMLButtonElement>('#btn-timeline-zoom-in')!.click(); // month -> compact
+            await vi.waitFor(() => expect(container.querySelector('#timeline-kind-filter')).not.toBeNull());
+            expect(getSelectedOptionValue(container.querySelector('#timeline-kind-filter'))).toBe('paused');
+        });
+
+        it('sends bucket requests with no kind field and the correct year per granularity', async () => {
+            const view = new TimelineView(container);
+            await renderAndLoad(view);
+            await vi.waitFor(() => expect(container.querySelector('#timeline-year-filter')).not.toBeNull());
+
+            const yearFilter = container.querySelector<HTMLSelectElement>('#timeline-year-filter')!;
+            yearFilter.value = '2024';
+            yearFilter.dispatchEvent(new Event('change'));
+            await vi.waitFor(() => expect(api.getTimelinePage).toHaveBeenLastCalledWith(
+                expect.objectContaining({ year: 2024 }),
+            ));
+
+            await zoomOutOnce(container); // detailed -> compact
+            await zoomOutOnce(container); // compact -> month
+            await vi.waitFor(() => expect(api.getTimelineBuckets).toHaveBeenCalledWith(
+                expect.objectContaining({ granularity: 'month', year: 2024 }),
+            ));
+            const monthRequest = vi.mocked(api.getTimelineBuckets).mock.calls.at(-1)![0];
+            expect(monthRequest).not.toHaveProperty('kind');
+
+            await zoomOutOnce(container); // month -> year
+            await vi.waitFor(() => expect(api.getTimelineBuckets).toHaveBeenLastCalledWith(
+                expect.objectContaining({ granularity: 'year', year: null }),
+            ));
+            const yearRequest = vi.mocked(api.getTimelineBuckets).mock.calls.at(-1)![0];
+            expect(yearRequest).not.toHaveProperty('kind');
+        });
+
+        it('disables the zoom-out button at year and the zoom-in button at detailed', async () => {
+            const view = new TimelineView(container);
+            await renderAndLoad(view);
+            await vi.waitFor(() => expect(container.querySelector('#btn-timeline-zoom-in')).not.toBeNull());
+
+            expect(container.querySelector<HTMLButtonElement>('#btn-timeline-zoom-in')?.disabled).toBe(true);
+            expect(container.querySelector<HTMLButtonElement>('#btn-timeline-zoom-out')?.disabled).toBe(false);
+
+            await zoomOutOnce(container);
+            await zoomOutOnce(container);
+            await zoomOutOnce(container);
+            await vi.waitFor(() => expect(container.querySelectorAll('.timeline-bucket-row').length).toBeGreaterThan(0));
+            await vi.waitFor(() => expect(container.querySelector<HTMLButtonElement>('#btn-timeline-zoom-out')?.disabled).toBe(true));
+            expect(container.querySelector<HTMLButtonElement>('#btn-timeline-zoom-in')?.disabled).toBe(false);
+        });
+
+        it('returns to detailed from any zoom level via the reset button', async () => {
+            const view = new TimelineView(container);
+            await renderAndLoad(view);
+            await vi.waitFor(() => expect(container.querySelector('#btn-timeline-zoom-reset')).not.toBeNull());
+
+            await zoomOutOnce(container);
+            await zoomOutOnce(container);
+            await vi.waitFor(() => expect(container.querySelectorAll('.timeline-bucket-row').length).toBeGreaterThan(0));
+
+            container.querySelector<HTMLButtonElement>('#btn-timeline-zoom-reset')!.click();
+            await vi.waitFor(() => expect(container.querySelectorAll('.timeline-entry')).toHaveLength(5));
+            expect(container.querySelector<HTMLButtonElement>('#btn-timeline-zoom-reset')?.textContent).toBe('Detailed');
+            expect(api.setSetting).toHaveBeenLastCalledWith('timeline_zoom_level', 'detailed');
+        });
     });
 });
