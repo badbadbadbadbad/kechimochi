@@ -20,6 +20,7 @@ import { formatStatsDuration } from '../time';
 import { MediaCoverLoader } from '../media/cover_loader';
 import { CoverVisibilityController } from '../media/cover_visibility';
 import { measureSynchronous } from '../performance';
+import { attachZoomGestures } from '../zoom_gestures';
 import {
     DEFAULT_TIMELINE_ZOOM_LEVEL,
     TIMELINE_ZOOM_LEVELS,
@@ -142,6 +143,8 @@ export class TimelineView extends Component<TimelineState> {
     private waveResizeTimer: ReturnType<typeof setTimeout> | null = null;
     private hasLoadedZoomPreference = false;
     private observedResizeRoot: HTMLElement | null = null;
+    private detachZoomGestures: (() => void) | null = null;
+    private zoomGesturesRoot: HTMLElement | null = null;
 
     private readonly handleViewportResize = (): void => {
         if (this.waveResizeTimer !== null) {
@@ -1142,6 +1145,18 @@ export class TimelineView extends Component<TimelineState> {
         return new Date(`${date}T00:00:00Z`);
     }
 
+    private attachZoomGestures(root: HTMLElement): void {
+        if (this.zoomGesturesRoot === root) return;
+
+        this.detachZoomGestures?.();
+        this.zoomGesturesRoot = root;
+        this.detachZoomGestures = attachZoomGestures(root, {
+            onZoom: direction => this.setZoomLevel(stepTimelineZoomLevel(this.state.zoomLevel, direction)),
+            enablePinch: true,
+            pinchMode: 'once-per-gesture',
+        });
+    }
+
     private setupListeners(root: HTMLElement): void {
         const searchInput = root.querySelector('#timeline-search') as HTMLInputElement | null;
         searchInput?.addEventListener('input', event => {
@@ -1185,6 +1200,8 @@ export class TimelineView extends Component<TimelineState> {
         root.querySelector('#btn-timeline-zoom-reset')?.addEventListener('click', () => {
             this.setZoomLevel(DEFAULT_TIMELINE_ZOOM_LEVEL);
         });
+
+        this.attachZoomGestures(root);
 
         root.querySelectorAll<HTMLButtonElement>('.timeline-media-link').forEach(button => {
             button.addEventListener('click', () => {
@@ -1450,6 +1467,9 @@ export class TimelineView extends Component<TimelineState> {
         this.paginationObserver = null;
         this.resizeObserver.disconnect();
         this.observedResizeRoot = null;
+        this.detachZoomGestures?.();
+        this.detachZoomGestures = null;
+        this.zoomGesturesRoot = null;
         if (this.searchTimer !== null) {
             globalThis.clearTimeout(this.searchTimer);
             this.searchTimer = null;
