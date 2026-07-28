@@ -17,6 +17,8 @@ export async function openTimeline(): Promise<void> {
     await waitForTimelineReady();
 }
 
+export const TIMELINE_ROW_SELECTOR = '.timeline-entry, .timeline-compact-row, .timeline-bucket-row';
+
 export async function waitForTimelineReady(): Promise<void> {
     await waitForSelectorDisplayed('#timeline-root', 10000);
 
@@ -30,9 +32,9 @@ export async function waitForTimelineReady(): Promise<void> {
             return false;
         }
 
-        const entryCount = await $$('.timeline-entry').length;
+        const rowCount = await $$(TIMELINE_ROW_SELECTOR).length;
         const emptyVisible = await $('.timeline-empty').isDisplayed().catch(() => false);
-        return entryCount > 0 || emptyVisible;
+        return rowCount > 0 || emptyVisible;
     }, {
         timeout: 10000,
         interval: 100,
