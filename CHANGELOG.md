@@ -14,6 +14,7 @@ The format is based on Keep a Changelog, with one section per released version.
  - It is now possible to filter the media library with advanced filter rules and tags
  - Media CSV exports now include an option Tracking Status column
  - The dashboard's side panel can now be collapsed into a Quick Log cover rail, reclaiming space for the charts.
+ - The timeline can now zoom out from per-event detail to compact rows, monthly summaries, and yearly summaries, with Ctrl/⌘+scroll and (untested) pinch-to-zoom accelerators.
 
 ### Changed
  - HTTP-based media CSV import now relies on a review_token for session consistency
