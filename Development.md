@@ -88,9 +88,10 @@ All frontend commands should be run from the project root.
     ```bash
     npm run lint
     ```
-*   **Typecheck**: Run the TypeScript compiler over `src/`, `tests/` and `e2e/`. Each tree has its
-    own project file (`tsconfig.json`, `tests/tsconfig.json`, `e2e/tsconfig.json`) and can be
-    checked on its own via `npm run typecheck:src` / `:tests` / `:e2e`.
+*   **Typecheck**: Run the TypeScript compiler over `src/`, `tests/`, `e2e/` and the Node-context
+    config files (`vite.config.ts`, `vitest.config.ts`). Each has its own project file
+    (`tsconfig.json`, `tests/tsconfig.json`, `e2e/tsconfig.json`, `tsconfig.node.json`) and can be
+    checked on its own via `npm run typecheck:src` / `:tests` / `:e2e` / `:node`.
     ```bash
     npm run typecheck
     ```
