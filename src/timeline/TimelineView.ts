@@ -701,7 +701,7 @@ export class TimelineView extends Component<TimelineState> {
     private renderZoomControl(): string {
         const level = this.state.zoomLevel;
         const atMostDetailed = level === TIMELINE_ZOOM_LEVELS[0];
-        const atMostZoomedOut = level === TIMELINE_ZOOM_LEVELS[TIMELINE_ZOOM_LEVELS.length - 1];
+        const atMostZoomedOut = level === TIMELINE_ZOOM_LEVELS.at(-1);
 
         return `
             <div class="timeline-filter-field timeline-filter-field-zoom">
