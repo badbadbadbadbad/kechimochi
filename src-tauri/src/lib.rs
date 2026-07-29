@@ -1004,8 +1004,11 @@ fn upload_cover_image(
 }
 
 #[tauri::command]
-fn read_file_bytes(app_handle: tauri::AppHandle, path: String) -> Result<Vec<u8>, String> {
-    app_file_io::read_input_bytes(&app_handle, &path)
+fn read_file_bytes(
+    app_handle: tauri::AppHandle,
+    path: String,
+) -> Result<tauri::ipc::Response, String> {
+    app_file_io::read_input_bytes(&app_handle, &path).map(tauri::ipc::Response::new)
 }
 
 #[tauri::command]

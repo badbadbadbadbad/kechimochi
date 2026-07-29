@@ -319,8 +319,8 @@ export class DesktopServices implements AppServices {
     async loadCoverImage(coverRef: string): Promise<string | null> {
         if (!coverRef || coverRef.trim() === '') return null;
         try {
-            const bytes = await invoke<number[]>('read_file_bytes', { path: coverRef });
-            const blob = new Blob([new Uint8Array(bytes)]);
+            const bytes = await invoke<ArrayBuffer>('read_file_bytes', { path: coverRef });
+            const blob = new Blob([bytes]);
             return URL.createObjectURL(blob);
         } catch {
             return null;

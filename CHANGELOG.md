@@ -34,6 +34,7 @@ The format is based on Keep a Changelog, with one section per released version.
  - Interrupted backups automatically restore the original data
  - Several stability and security vulnerability fixes
  - The reading time estimate in the media detail view sometimes never appeared
+ - Cover images load much faster in the desktop and Android apps, and no longer stall the interface when many of them load at once
 
 ## [0.3.1] - 2026-07-24
 
