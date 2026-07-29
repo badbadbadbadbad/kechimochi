@@ -45,7 +45,7 @@ describe('MediaItem', () => {
     });
 
     it('should load image when intersecting', async () => {
-        vi.mocked(api.readFileBytes).mockResolvedValue([1, 2, 3]);
+        vi.mocked(api.readFileBytes).mockResolvedValue(new Uint8Array([1, 2, 3]).buffer);
         // Mock URL.createObjectURL
         globalThis.URL.createObjectURL = vi.fn(() => 'blob:abc');
 
@@ -79,7 +79,7 @@ describe('MediaItem', () => {
     });
 
     it('should load eager covers without waiting for an intersection', async () => {
-        vi.mocked(api.readFileBytes).mockResolvedValue([1, 2, 3]);
+        vi.mocked(api.readFileBytes).mockResolvedValue(new Uint8Array([1, 2, 3]).buffer);
         globalThis.URL.createObjectURL = vi.fn(() => 'blob:eager');
 
         const media = { title: 'Eager', cover_image: '/path/to/eager.jpg', status: 'Active' };
@@ -93,7 +93,7 @@ describe('MediaItem', () => {
     });
 
     it('should reuse cached cover images without reading bytes again', async () => {
-        vi.mocked(api.readFileBytes).mockResolvedValue([1, 2, 3]);
+        vi.mocked(api.readFileBytes).mockResolvedValue(new Uint8Array([1, 2, 3]).buffer);
         globalThis.URL.createObjectURL = vi.fn(() => 'blob:cached');
 
         const media = { title: 'Cached', cover_image: '/path/to/cached.jpg', status: 'Active' };
@@ -109,7 +109,7 @@ describe('MediaItem', () => {
     });
 
     it('reconciles a retained cover after its desktop object URL is invalidated', async () => {
-        vi.mocked(api.readFileBytes).mockResolvedValue([1, 2, 3]);
+        vi.mocked(api.readFileBytes).mockResolvedValue(new Uint8Array([1, 2, 3]).buffer);
         globalThis.URL.createObjectURL = vi.fn()
             .mockReturnValueOnce('blob:retained-cover-1')
             .mockReturnValueOnce('blob:retained-cover-2');
@@ -151,7 +151,7 @@ describe('MediaItem', () => {
     });
 
     it('should not commit a cover that resolves after the item is destroyed', async () => {
-        let resolveBytes: (bytes: number[]) => void = (_bytes: number[]) => undefined;
+        let resolveBytes: (bytes: ArrayBuffer) => void = (_bytes: ArrayBuffer) => undefined;
         vi.mocked(api.readFileBytes).mockReturnValue(new Promise(resolve => {
             resolveBytes = resolve;
         }));
@@ -165,7 +165,7 @@ describe('MediaItem', () => {
         await vi.waitFor(() => expect(api.readFileBytes).toHaveBeenCalledWith('/path/to/late.jpg'));
 
         component.destroy();
-        resolveBytes([1, 2, 3]);
+        resolveBytes(new Uint8Array([1, 2, 3]).buffer);
         await vi.waitFor(() => expect(createObjectUrl).toHaveBeenCalledOnce());
         await new Promise(resolve => setTimeout(resolve, 0));
 

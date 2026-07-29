@@ -241,8 +241,8 @@ export function uploadCoverImage(mediaId: number, path: string): Promise<string>
   return desktopInvoke<string>('upload_cover_image', { mediaId, path });
 }
 
-export function readFileBytes(path: string): Promise<number[]> {
-  return desktopInvoke<number[]>('read_file_bytes', { path });
+export function readFileBytes(path: string): Promise<ArrayBuffer> {
+  return desktopInvoke<ArrayBuffer>('read_file_bytes', { path });
 }
 
 export function exportFullBackup(localStorageData: string, version: string): Promise<boolean> {

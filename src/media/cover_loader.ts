@@ -158,10 +158,10 @@ export class MediaCoverLoader {
         }
 
         const bytes = await readFileBytes(coverRef);
-        const blob = new Blob([new Uint8Array(bytes)]);
+        const blob = new Blob([bytes]);
         return {
             src: URL.createObjectURL(blob),
-            byteSize: bytes.length,
+            byteSize: bytes.byteLength,
         };
     }
 
