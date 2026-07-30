@@ -15,8 +15,6 @@ function buildBucket(overrides: Partial<TimelineBucket> = {}): TimelineBucket {
         loggedCharacters: 0,
         highlights: [],
         distinctMediaCount: 0,
-        milestones: [],
-        milestoneOverflow: 0,
         ...overrides,
     };
 }
@@ -90,15 +88,25 @@ describe('timeline_buckets.ts', () => {
                 .toEqual(['14h 20m', '92,431 chars logged']);
         });
 
-        it('should return zero time and characters for an empty bucket', () => {
-            expect(timelineBuckets.buildTimelineBucketTotalsParts(buildBucket()))
-                .toEqual(['0m', '0 chars logged']);
+        it('should return no parts for an empty bucket', () => {
+            expect(timelineBuckets.buildTimelineBucketTotalsParts(buildBucket())).toEqual([]);
         });
 
-        it('should skip zero minutes on an even hour', () => {
+        it('should omit characters when only time is logged', () => {
             const bucket = buildBucket({ loggedMinutes: 120, loggedCharacters: 0 });
+            expect(timelineBuckets.buildTimelineBucketTotalsParts(bucket)).toEqual(['2h']);
+        });
+
+        it('should omit time when only characters are logged', () => {
+            const bucket = buildBucket({ loggedMinutes: 0, loggedCharacters: 4200 });
             expect(timelineBuckets.buildTimelineBucketTotalsParts(bucket))
-                .toEqual(['2h', '0 chars logged']);
+                .toEqual(['4,200 chars logged']);
+        });
+
+        it('should use the singular noun for a single character', () => {
+            const bucket = buildBucket({ loggedMinutes: 0, loggedCharacters: 1 });
+            expect(timelineBuckets.buildTimelineBucketTotalsParts(bucket))
+                .toEqual(['1 char logged']);
         });
     });
 
@@ -168,16 +176,6 @@ describe('timeline_buckets.ts', () => {
             expect(
                 timelineBuckets.fitTimelineBucketCovers({ ...baseFit, availableWidth: 10 }),
             ).toEqual({ visibleCount: 1, overflowCount: 6 });
-        });
-    });
-
-    describe('formatTimelineBucketMilestoneOverflowLabel', () => {
-        it('should format a positive overflow', () => {
-            expect(timelineBuckets.formatTimelineBucketMilestoneOverflowLabel(5)).toBe('+5 more');
-        });
-
-        it('should return null when there is no overflow', () => {
-            expect(timelineBuckets.formatTimelineBucketMilestoneOverflowLabel(0)).toBeNull();
         });
     });
 

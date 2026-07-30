@@ -35,7 +35,6 @@ export type {
   TimelineBucketPage,
   TimelineBucketRequest,
   TimelineBucketHighlight,
-  TimelineBucketMilestone,
   TimelineBucket,
   MediaCsvRow,
   MediaCsvImportSelection,

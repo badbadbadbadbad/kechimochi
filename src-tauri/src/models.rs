@@ -505,14 +505,6 @@ pub struct TimelineBucketHighlight {
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct TimelineBucketMilestone {
-    pub milestone_id: Option<i64>,
-    pub media_id: i64,
-    pub name: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
 pub struct TimelineBucket {
     pub key: String,
     pub start_date: String,
@@ -525,8 +517,6 @@ pub struct TimelineBucket {
     pub logged_characters: i64,
     pub highlights: Vec<TimelineBucketHighlight>,
     pub distinct_media_count: i64,
-    pub milestones: Vec<TimelineBucketMilestone>,
-    pub milestone_overflow: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

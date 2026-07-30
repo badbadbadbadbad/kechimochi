@@ -2,7 +2,8 @@
  * Pure bucket-row formatting for the `month` / `year` timeline zoom levels. No DOM.
  */
 import type { TimelineBucket, TimelineBucketGranularity, TimelineEventKind, TimelineSummary } from '../types';
-import { formatStatsDuration } from '../time';
+import { formatOptionalCount } from '../count_formatting';
+import { formatOptionalStatsDuration } from '../time';
 
 export const EMPTY_TIMELINE_SUMMARY: TimelineSummary = {
     total_minutes: 0,
@@ -61,10 +62,11 @@ export function getTimelineBucketDominantKind(bucket: TimelineBucket): TimelineE
 }
 
 export function buildTimelineBucketTotalsParts(bucket: TimelineBucket): string[] {
+    const loggedCharacters = formatOptionalCount(bucket.loggedCharacters, 'char');
     return [
-        formatStatsDuration(bucket.loggedMinutes, true),
-        `${bucket.loggedCharacters.toLocaleString()} chars logged`,
-    ];
+        formatOptionalStatsDuration(bucket.loggedMinutes),
+        loggedCharacters ? `${loggedCharacters} logged` : '',
+    ].filter(part => part.length > 0);
 }
 
 export function formatTimelineBucketCoverOverflowLabel(overflowCount: number, anyCoverVisible: boolean): string | null {
@@ -110,10 +112,6 @@ export function fitTimelineBucketCovers(input: TimelineBucketCoverFitInput): Tim
         overflowCount = input.distinctMediaCount - visibleCount;
     }
     return { visibleCount, overflowCount };
-}
-
-export function formatTimelineBucketMilestoneOverflowLabel(milestoneOverflow: number): string | null {
-    return milestoneOverflow > 0 ? `+${milestoneOverflow} more` : null;
 }
 
 export function formatTimelineBucketLabel(bucket: TimelineBucket, granularity: TimelineBucketGranularity): string {

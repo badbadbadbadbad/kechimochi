@@ -160,8 +160,6 @@ function createBucket(overrides: Partial<TimelineBucket> = {}): TimelineBucket {
         loggedCharacters: 0,
         highlights: [],
         distinctMediaCount: 0,
-        milestones: [],
-        milestoneOverflow: 0,
         ...overrides,
     };
 }
@@ -631,7 +629,7 @@ describe('TimelineView', () => {
                     kind: 'paused', mediaId: 2, totalMinutes: 120, totalCharacters: 0,
                 }),
                 createEvent({
-                    kind: 'milestone', mediaId: 3, milestoneMinutes: 0, milestoneCharacters: 500,
+                    kind: 'dropped', mediaId: 3, totalMinutes: 0, totalCharacters: 500,
                 }),
             ]));
             const view = new TimelineView(container);
@@ -645,6 +643,78 @@ describe('TimelineView', () => {
                 .map(row => Array.from(row.querySelectorAll('.timeline-compact-metric'))
                     .map(node => node.textContent));
             expect(metricsByRow).toEqual([['2h 5m', '1,234 chars'], ['2h'], ['500 chars']]);
+        });
+
+        it('omits a bucket total whose value is zero', async () => {
+            vi.mocked(api.getTimelineBuckets).mockImplementation(async request => createBucketPage(request, [
+                createBucket({ key: '2024-03', startDate: '2024-03-01', loggedMinutes: 60, loggedCharacters: 0 }),
+                createBucket({ key: '2024-02', startDate: '2024-02-01', loggedMinutes: 0, loggedCharacters: 4200 }),
+                createBucket({ key: '2024-01', startDate: '2024-01-01', loggedMinutes: 0, loggedCharacters: 0 }),
+            ]));
+            const view = new TimelineView(container);
+            await renderAndLoad(view);
+            await zoomOutOnce(container); // detailed -> compact
+            await zoomOutOnce(container); // compact -> month
+            await vi.waitFor(() => expect(container.querySelectorAll('.timeline-bucket-row')).toHaveLength(3));
+
+            const totalsByRow = Array.from(container.querySelectorAll('.timeline-bucket-row'))
+                .map(row => Array.from(row.querySelectorAll('.timeline-bucket-total'))
+                    .map(node => node.textContent));
+            expect(totalsByRow).toEqual([['1h'], ['4,200 chars logged'], []]);
+        });
+
+        it('renders no milestone name list on a bucket row', async () => {
+            vi.mocked(api.getTimelineBuckets).mockImplementation(async request => createBucketPage(request, [
+                createBucket({ key: '2024-03', startDate: '2024-03-01', milestoneCount: 3 }),
+            ]));
+            const view = new TimelineView(container);
+            await renderAndLoad(view);
+            await zoomOutOnce(container); // detailed -> compact
+            await zoomOutOnce(container); // compact -> month
+            await vi.waitFor(() => expect(container.querySelectorAll('.timeline-bucket-row')).toHaveLength(1));
+
+            const row = container.querySelector('.timeline-bucket-row');
+            expect(row?.querySelector('.timeline-bucket-milestones')).toBeNull();
+            const pipLabels = Array.from(row?.querySelectorAll('.timeline-bucket-pip') ?? [])
+                .map(node => node.textContent);
+            expect(pipLabels).toContain('3 milestones');
+        });
+
+        it('scrolls back to the top when the zoom level changes', async () => {
+            const scroller = document.createElement('div');
+            scroller.className = 'main-content';
+            container.parentElement?.replaceChild(scroller, container);
+            scroller.appendChild(container);
+            const scrollTo = vi.fn();
+            scroller.scrollTo = scrollTo;
+
+            const view = new TimelineView(container);
+            await renderAndLoad(view);
+            expect(scrollTo).not.toHaveBeenCalled();
+
+            await zoomOutOnce(container);
+            expect(scrollTo).toHaveBeenCalledWith({ top: 0 });
+        });
+
+        it('shows the milestone name instead of the date and metrics in a compact row', async () => {
+            vi.mocked(api.getTimelinePage).mockImplementation(async request => createPage(request, [
+                createEvent({
+                    kind: 'milestone',
+                    milestoneName: 'Chapter 10',
+                    milestoneMinutes: 45,
+                    milestoneCharacters: 500,
+                }),
+            ]));
+            const view = new TimelineView(container);
+            await renderAndLoad(view);
+            await zoomOutOnce(container); // detailed -> compact
+            await vi.waitFor(() => expect(container.querySelectorAll('.timeline-compact-row')).toHaveLength(1));
+
+            const row = container.querySelector('.timeline-compact-row');
+            expect(row?.querySelector('.timeline-compact-milestone')?.textContent?.trim()).toBe('Chapter 10');
+            expect(row?.querySelector('.timeline-compact-date')).toBeNull();
+            expect(row?.querySelectorAll('.timeline-compact-metric')).toHaveLength(0);
+            expect(row?.querySelector('.timeline-media-link')?.textContent?.trim()).toBe('Novel A');
         });
 
         it('puts the title left of the axis and the state cluster right in a compact row', async () => {

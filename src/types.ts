@@ -394,12 +394,6 @@ export interface TimelineBucketHighlight {
     coverImage: string;
 }
 
-export interface TimelineBucketMilestone {
-    milestoneId: number | null;
-    mediaId: number;
-    name: string;
-}
-
 export interface TimelineBucket {
     key: string;
     startDate: string;
@@ -412,8 +406,6 @@ export interface TimelineBucket {
     loggedCharacters: number;
     highlights: TimelineBucketHighlight[];
     distinctMediaCount: number;
-    milestones: TimelineBucketMilestone[];
-    milestoneOverflow: number;
 }
 
 export interface TimelineBucketPage {

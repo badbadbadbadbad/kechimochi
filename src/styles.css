@@ -1504,11 +1504,28 @@ input:focus, select:focus {
 }
 
 .timeline-compact-kind {
+  flex: 0 0 auto;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: color-mix(in srgb, var(--timeline-accent) 70%, var(--text-primary) 30%);
+}
+
+/* A milestone row trades the date and metrics for the milestone's own name, so the meta side
+   must stay on one line for the name to ellipsize instead of wrapping. */
+.timeline-compact-meta.is-milestone {
+  flex-wrap: nowrap;
+}
+
+.timeline-compact-milestone {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
 }
 
 .timeline-compact-metric {
@@ -1670,29 +1687,6 @@ input:focus, select:focus {
   color: var(--text-secondary);
   font-size: 0.78rem;
   font-weight: 700;
-}
-
-.timeline-bucket-milestones {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.timeline-bucket-milestone-chip {
-  display: block;
-  min-height: 0;
-  max-width: 14rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.78rem;
-}
-
-.timeline-bucket-milestone-overflow {
-  align-self: center;
-  color: var(--text-secondary);
-  font-size: 0.78rem;
 }
 
 /* Micro animations */

@@ -10,17 +10,18 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use rusqlite::{Connection, Result};
 
 use crate::models::{
-    TimelineBucket, TimelineBucketGranularity, TimelineBucketHighlight, TimelineBucketMilestone,
-    TimelineBucketPage, TimelineBucketRequest, TimelineEvent, TimelineEventKind, TimelinePage,
-    TimelinePageRequest, TimelineSummary,
+    TimelineBucket, TimelineBucketGranularity, TimelineBucketHighlight, TimelineBucketPage,
+    TimelineBucketRequest, TimelineEvent, TimelineEventKind, TimelinePage, TimelinePageRequest,
+    TimelineSummary,
 };
 use crate::read_performance::{Measured, Timings};
 
 pub const MAX_TIMELINE_PAGE_SIZE: i64 = 100;
 const MAX_TIMELINE_OFFSET: i64 = 1_000_000;
 const MAX_TIMELINE_SEARCH_CHARS: usize = 200;
-const MAX_TIMELINE_BUCKET_HIGHLIGHTS: usize = 24;
-const MAX_TIMELINE_BUCKET_MILESTONES: usize = 4;
+/// Cover-strip capacity per bucket, derived from the CSS that lays the strip out
+const MAX_MONTH_BUCKET_HIGHLIGHTS: usize = 14;
+const MAX_YEAR_BUCKET_HIGHLIGHTS: usize = 28;
 const MAX_TIMELINE_BUCKETS: usize = 600;
 
 #[derive(Clone)]
@@ -115,8 +116,9 @@ pub fn get_timeline_buckets(
     let mut timings = Timings::default();
     let transaction = timings.query(|| conn.unchecked_transaction())?;
     let all_events = query_timeline_events(&transaction, &mut timings)?;
-    let month_totals = query_media_month_totals(&transaction, &mut timings)?;
-    let page = timings.aggregate(|| build_bucket_page(all_events, month_totals, request));
+    let bucket_totals =
+        query_media_bucket_totals(&transaction, &mut timings, &request.granularity)?;
+    let page = timings.aggregate(|| build_bucket_page(all_events, bucket_totals, request));
     timings.query(|| transaction.commit())?;
     Ok(timings.finish(page))
 }
@@ -336,21 +338,23 @@ fn query_dominant_activity_types(
 /// `activity_logs`. This is intentionally independent of any lifecycle event:
 /// a title read across several months logs time in all of them even though it
 /// only ever produces one or two timeline events.
-fn query_media_month_totals(
+fn query_media_bucket_totals(
     conn: &Connection,
     timings: &mut Timings,
+    granularity: &TimelineBucketGranularity,
 ) -> Result<Vec<(i64, String, i64, i64)>> {
+    let key_len = i64::try_from(bucket_key_len(granularity)).unwrap_or(7);
     timings.query(|| {
         let mut statement = conn.prepare(
             "SELECT media_id,
-                    substr(date, 1, 7),
+                    substr(date, 1, ?1),
                     COALESCE(SUM(duration_minutes), 0),
                     COALESCE(SUM(characters), 0)
              FROM main.activity_logs
              WHERE date <> ''
-             GROUP BY media_id, substr(date, 1, 7)",
+             GROUP BY media_id, substr(date, 1, ?1)",
         )?;
-        let rows = statement.query_map([], |row| {
+        let rows = statement.query_map([key_len], |row| {
             Ok((
                 row.get::<_, i64>(0)?,
                 row.get::<_, String>(1)?,
@@ -468,6 +472,13 @@ fn build_page(events: Vec<TimelineEvent>, request: &TimelinePageRequest) -> Time
     }
 }
 
+fn max_bucket_highlights(granularity: &TimelineBucketGranularity) -> usize {
+    match granularity {
+        TimelineBucketGranularity::Month => MAX_MONTH_BUCKET_HIGHLIGHTS,
+        TimelineBucketGranularity::Year => MAX_YEAR_BUCKET_HIGHLIGHTS,
+    }
+}
+
 fn bucket_key_len(granularity: &TimelineBucketGranularity) -> usize {
     match granularity {
         TimelineBucketGranularity::Month => 7,
@@ -532,7 +543,7 @@ fn sort_media_by_immersion(
 
 fn build_bucket_page(
     events: Vec<TimelineEvent>,
-    month_totals: Vec<(i64, String, i64, i64)>,
+    bucket_totals: Vec<(i64, String, i64, i64)>,
     request: &TimelineBucketRequest,
 ) -> TimelineBucketPage {
     let available_years = compute_available_years(&events);
@@ -576,11 +587,11 @@ fn build_bucket_page(
             bucket_keys.insert(key.to_string());
         }
     }
-    for (media_id, month, _, _) in &month_totals {
+    for (media_id, bucket_key, _, _) in &bucket_totals {
         if !search_matched_media.contains(media_id) {
             continue;
         }
-        if let Some(key) = month.get(0..key_len) {
+        if let Some(key) = bucket_key.get(0..key_len) {
             bucket_keys.insert(key.to_string());
         }
     }
@@ -607,8 +618,6 @@ fn build_bucket_page(
             logged_characters: 0,
             highlights: Vec::new(),
             distinct_media_count: 0,
-            milestones: Vec::new(),
-            milestone_overflow: 0,
         });
     }
     let bucket_count = buckets.len();
@@ -619,11 +628,11 @@ fn build_bucket_page(
     let mut bucket_highlight_seen = vec![HashSet::<i64>::new(); bucket_count];
     let mut bucket_highlight_candidates = vec![Vec::<i64>::new(); bucket_count];
 
-    for (media_id, month, minutes, characters) in &month_totals {
+    for (media_id, bucket_key, minutes, characters) in &bucket_totals {
         if !search_matched_media.contains(media_id) {
             continue;
         }
-        let Some(key) = month.get(0..key_len) else {
+        let Some(key) = bucket_key.get(0..key_len) else {
             continue;
         };
         let Some(&index) = bucket_index.get(key) else {
@@ -665,16 +674,6 @@ fn build_bucket_page(
         {
             bucket_highlight_candidates[index].push(event.media_id);
         }
-
-        if event.kind == TimelineEventKind::Milestone
-            && buckets[index].milestones.len() < MAX_TIMELINE_BUCKET_MILESTONES
-        {
-            buckets[index].milestones.push(TimelineBucketMilestone {
-                milestone_id: event.milestone_id,
-                media_id: event.media_id,
-                name: event.milestone_name.clone().unwrap_or_default(),
-            });
-        }
     }
 
     for index in 0..bucket_count {
@@ -698,7 +697,7 @@ fn build_bucket_page(
         let mut candidates = std::mem::take(&mut bucket_highlight_candidates[index]);
         if !candidates.is_empty() {
             sort_media_by_immersion(&mut candidates, Some(&bucket_media_totals[index]));
-            candidates.truncate(MAX_TIMELINE_BUCKET_HIGHLIGHTS);
+            candidates.truncate(max_bucket_highlights(&request.granularity));
             buckets[index].highlights = candidates
                 .into_iter()
                 .filter_map(|media_id| {
@@ -715,10 +714,6 @@ fn build_bucket_page(
         }
         let distinct = bucket_distinct_media[index].len();
         buckets[index].distinct_media_count = i64::try_from(distinct).unwrap_or(i64::MAX);
-        let milestone_overflow = buckets[index].milestone_count
-            - i64::try_from(buckets[index].milestones.len())
-                .unwrap_or(buckets[index].milestone_count);
-        buckets[index].milestone_overflow = milestone_overflow.max(0);
     }
 
     buckets.sort_by(|left, right| right.key.cmp(&left.key));
@@ -1197,7 +1192,7 @@ mod tests {
     fn highlights_are_capped_and_report_the_full_distinct_count() {
         let directory = tempfile::tempdir().unwrap();
         let conn = db::init_db(directory.path().to_path_buf(), Some("bucket-highlights")).unwrap();
-        let media_count = MAX_TIMELINE_BUCKET_HIGHLIGHTS + 2;
+        let media_count = MAX_YEAR_BUCKET_HIGHLIGHTS + 2;
         for index in 1..=media_count {
             let title = format!("Title {index}");
             let cover = format!("cover-{index}.png");
@@ -1228,9 +1223,23 @@ mod tests {
         assert_eq!(buckets.buckets.len(), 1);
         let bucket = &buckets.buckets[0];
         assert_eq!(bucket.started_count, i64::try_from(media_count).unwrap());
-        assert_eq!(bucket.highlights.len(), MAX_TIMELINE_BUCKET_HIGHLIGHTS);
+        assert_eq!(bucket.highlights.len(), MAX_MONTH_BUCKET_HIGHLIGHTS);
         assert_eq!(
             bucket.distinct_media_count,
+            i64::try_from(media_count).unwrap()
+        );
+
+        let years = get_timeline_buckets(
+            &conn,
+            &bucket_request(TimelineBucketGranularity::Year, None, ""),
+        )
+        .unwrap()
+        .value;
+        assert_eq!(years.buckets.len(), 1);
+        let year = &years.buckets[0];
+        assert_eq!(year.highlights.len(), MAX_YEAR_BUCKET_HIGHLIGHTS);
+        assert_eq!(
+            year.distinct_media_count,
             i64::try_from(media_count).unwrap()
         );
     }
@@ -1347,7 +1356,7 @@ mod tests {
     }
 
     #[test]
-    fn milestones_are_capped_with_overflow_count() {
+    fn milestones_roll_into_the_bucket_count() {
         let directory = tempfile::tempdir().unwrap();
         let conn = db::init_db(directory.path().to_path_buf(), Some("bucket-milestones")).unwrap();
         let media_id = db::add_media_with_id(&conn, &media("Milestone Media", "Ongoing")).unwrap();
@@ -1382,8 +1391,6 @@ mod tests {
         assert_eq!(buckets.buckets.len(), 1);
         let bucket = &buckets.buckets[0];
         assert_eq!(bucket.milestone_count, 5);
-        assert_eq!(bucket.milestones.len(), MAX_TIMELINE_BUCKET_MILESTONES);
-        assert_eq!(bucket.milestone_overflow, 1);
     }
 
     #[test]

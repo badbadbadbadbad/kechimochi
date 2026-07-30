@@ -46,8 +46,6 @@ function buildBucket(overrides: Partial<TimelineBucket> = {}): TimelineBucket {
         loggedCharacters: 0,
         highlights: [],
         distinctMediaCount: 0,
-        milestones: [],
-        milestoneOverflow: 0,
         ...overrides,
     };
 }
