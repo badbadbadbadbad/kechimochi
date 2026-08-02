@@ -562,6 +562,7 @@ async fn serve_static_or_spa(
                 "jpg" | "jpeg" => "image/jpeg",
                 "ico" => "image/x-icon",
                 "html" => "text/html; charset=utf-8",
+                "woff2" => "font/woff2",
                 _ => "application/octet-stream",
             };
 
