@@ -33,6 +33,8 @@ The format is based on Keep a Changelog, with one section per released version.
  - Interrupted backups automatically restore the original data
  - Several stability and security vulnerability fixes
  - The reading time estimate in the media detail view sometimes never appeared
+ - The startup error and database recovery screens now show their intended background gradient
+ - The Jiten.moe search dialog title was invisible on the light themes
 
 ## [0.3.1] - 2026-07-24
 
