@@ -4000,6 +4000,14 @@ input:checked + .slider:before {
   padding: 0.8rem 1rem;
   font-size: 0.85rem;
 }
+
+/* Sits on cover artwork, not a themed surface, so it must not follow --text-primary.
+   Must stay outside the width query below: the button renders at every width and its SVG
+   strokes with currentColor. */
+.cover-action {
+    color: var(--text-on-fill);
+}
+
 @media (max-width: 1024px) {
 
   .quick-log-cover {
@@ -4044,9 +4052,6 @@ input:checked + .slider:before {
     border: none;
     background: none;
     padding: 0;
-
-    /* Sits on cover artwork, not on a themed surface, so it must not follow --text-primary. */
-    color: var(--text-on-fill);
 
     display: flex;
     align-items: center;
