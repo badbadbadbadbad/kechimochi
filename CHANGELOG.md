@@ -14,6 +14,7 @@ The format is based on Keep a Changelog, with one section per released version.
  - It is now possible to filter the media library with advanced filter rules and tags
  - Media CSV exports now include an option Tracking Status column
  - The dashboard's side panel can now be collapsed into a Quick Log cover rail, reclaiming space for the charts.
+ - Added an E-Ink theme: black on white, borders instead of fill-tints, no motion or elevation, tuned for e-ink panels
 
 ### Changed
  - HTTP-based media CSV import now relies on a review_token for session consistency
@@ -23,6 +24,7 @@ The format is based on Keep a Changelog, with one section per released version.
  - Failed inline media edits now revert on screen and display a "Unable to Save Media" warning
  - Concurrent edits via cloud sync now produce a conflict resolution event
  - Monthly stats calendar view shows week separation and better day-of-week text
+ - Doughnut and stacked-bar chart segments now have a border separating them, across all themes
 
 ### Fixed
  - Various HTTP API hardening requirements and data validation fixes
@@ -35,6 +37,7 @@ The format is based on Keep a Changelog, with one section per released version.
  - The reading time estimate in the media detail view sometimes never appeared
  - The startup error and database recovery screens now show their intended background gradient
  - The Jiten.moe search dialog title was invisible on the light themes
+ - Selected toggle buttons, filter chips and sort direction options are now readable on themes with a dark accent colour
 
 ## [0.3.1] - 2026-07-24
 
