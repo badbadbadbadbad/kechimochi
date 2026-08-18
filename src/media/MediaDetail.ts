@@ -27,7 +27,6 @@ import {pushBackHandler} from '../back_stack';
 import {MediaLog} from './MediaLog';
 import {setupCopyButton} from '../clipboard';
 import {
-    getCharacterCountFromExtraData,
     mergeExtraData,
     normalizeExtraData,
     removeExtraDataKey,
@@ -43,8 +42,14 @@ import {
     SETTING_KEYS,
     TRACKING_STATUSES
 } from '../constants';
+import {
+    estimateMediaReadingSpeed,
+    isReadingContentType,
+    READING_SPEED_SETTING_KEY_BY_CONTENT_TYPE,
+    ReadingContentType,
+    ReadingSpeedSettingKey
+} from '../stats/reading_speed';
 
-type ReadingSpeedSettingKey = typeof SETTING_KEYS.STATS_NOVEL_SPEED | typeof SETTING_KEYS.STATS_MANGA_SPEED | typeof SETTING_KEYS.STATS_VN_SPEED;
 type ReadingSpeedSettings = Record<ReadingSpeedSettingKey, number>;
 
 interface MediaDetailState {
@@ -143,6 +148,8 @@ export class MediaDetail extends Component<MediaDetailState> {
             isDescriptionExpanded: false,
             readingSpeedSettings: {
                 [SETTING_KEYS.STATS_NOVEL_SPEED]: 0,
+                [SETTING_KEYS.STATS_WEBNOVEL_SPEED]: 0,
+                [SETTING_KEYS.STATS_NONFICTION_SPEED]: 0,
                 [SETTING_KEYS.STATS_MANGA_SPEED]: 0,
                 [SETTING_KEYS.STATS_VN_SPEED]: 0,
             },
@@ -206,8 +213,10 @@ export class MediaDetail extends Component<MediaDetailState> {
 
     private async loadReadingSpeedSettings() {
         try {
-            const [novelSpeed, mangaSpeed, vnSpeed] = await Promise.all([
+            const [novelSpeed, webNovelSpeed, nonFictionSpeed, mangaSpeed, vnSpeed] = await Promise.all([
                 getSetting(SETTING_KEYS.STATS_NOVEL_SPEED),
+                getSetting(SETTING_KEYS.STATS_WEBNOVEL_SPEED),
+                getSetting(SETTING_KEYS.STATS_NONFICTION_SPEED),
                 getSetting(SETTING_KEYS.STATS_MANGA_SPEED),
                 getSetting(SETTING_KEYS.STATS_VN_SPEED),
             ]);
@@ -215,6 +224,8 @@ export class MediaDetail extends Component<MediaDetailState> {
                 this.setState({
                     readingSpeedSettings: {
                         [SETTING_KEYS.STATS_NOVEL_SPEED]: Number.parseInt(novelSpeed || "0", 10),
+                        [SETTING_KEYS.STATS_WEBNOVEL_SPEED]: Number.parseInt(webNovelSpeed || "0", 10),
+                        [SETTING_KEYS.STATS_NONFICTION_SPEED]: Number.parseInt(nonFictionSpeed || "0", 10),
                         [SETTING_KEYS.STATS_MANGA_SPEED]: Number.parseInt(mangaSpeed || "0", 10),
                         [SETTING_KEYS.STATS_VN_SPEED]: Number.parseInt(vnSpeed || "0", 10),
                     },
@@ -798,42 +809,26 @@ export class MediaDetail extends Component<MediaDetailState> {
         return valuedFields.join('') + booleanTagList;
     }
 
-    private computeReadingSpeedHtml(media: Media, readingMin: number, readingSpeedSettings: ReadingSpeedSettings): string {
-        try {
-            const extra = JSON.parse(media.extra_data || "{}");
-            const charCount = getCharacterCountFromExtraData(extra);
-            if (charCount === null || charCount <= 0) return "";
-            if (readingMin <= 0) return "";
+    private computeReadingSpeedHtml(media: Media, logs: ActivitySummary[], readingSpeedSettings: ReadingSpeedSettings): string {
+        const contentType = media.content_type as ReadingContentType;
+        const cachedTypeSpeed = readingSpeedSettings[READING_SPEED_SETTING_KEY_BY_CONTENT_TYPE[contentType]] || null;
+        const estimate = estimateMediaReadingSpeed(media, logs, cachedTypeSpeed);
 
-            if (media.tracking_status === 'Complete') {
-                const speed = Math.round(charCount / (readingMin / 60));
-                return `<span class="estimation-block" >Est. Reading Speed: <strong style="color: var(--text-primary);">${speed.toLocaleString()} char/hr (min :${readingMin} , chars : ${charCount})</strong></span>`;
-            }
+        const isWorkDerivedSpeed = estimate.source === 'completedAnchor' || estimate.source === 'workSessions';
+        const speedHtml = isWorkDerivedSpeed && estimate.charactersPerHour !== null
+            ? `<span id="est-reading-speed" class="estimation-block">Est. Reading Speed: <strong class="estimation-value">${Math.round(estimate.charactersPerHour).toLocaleString()} char/hr</strong></span>`
+            : "";
 
-            let speedKey: ReadingSpeedSettingKey | "" = "";
-            if (media.content_type === "Novel") speedKey = SETTING_KEYS.STATS_NOVEL_SPEED;
-            else if (media.content_type === "Manga") speedKey = SETTING_KEYS.STATS_MANGA_SPEED;
-            else if (media.content_type === "Visual Novel") speedKey = SETTING_KEYS.STATS_VN_SPEED;
-            if (!speedKey) return "";
-
-            const avgSpeed = readingSpeedSettings[speedKey];
-            if (avgSpeed <= 0) return "";
-
-            const estTotalMin = (charCount / avgSpeed) * 60;
-            const totalEstTotalMin = Math.round(estTotalMin);
-            const estRemainingMin = Math.max(0, totalEstTotalMin - readingMin);
-            const completionRate = Math.min(100, Math.round((readingMin / estTotalMin) * 100));
-            const remStr = formatHhMm(estRemainingMin);
-            const totalEstStr = formatHhMm(totalEstTotalMin);
-
-            return `
-                <span id="est-remaining-time" class="estimation-block" style="display:flex; flex-wrap:wrap;"><span>Est. remaining time: </span><span><strong style="color: var(--text-primary);">${remStr}</strong> (<strong style="color: var(--text-primary);">${totalEstStr}</strong> total)</span></span>
-                <span id="est-completion-rate" class="estimation-block" >Est. completion rate: <strong style="color: var(--text-primary);">${completionRate}%</strong></span>
-            `;
-        } catch (e) {
-            Logger.warn("Could not compute reading speed stats", e);
-            return "";
+        if (media.tracking_status === 'Complete' || estimate.completionPercent === null) {
+            return speedHtml;
         }
+
+        const remainingHtml = estimate.remainingMinutes !== null
+            ? `<span id="est-remaining-time" class="estimation-block">Est. remaining time: <strong class="estimation-value">${formatHhMm(Math.round(estimate.remainingMinutes))}</strong></span>`
+            : "";
+        const completionHtml = `<span id="est-completion-rate" class="estimation-block">Est. completion rate: <strong class="estimation-value">${Math.round(estimate.completionPercent)}%</strong></span>`;
+
+        return `${speedHtml}${remainingHtml}${completionHtml}`;
     }
 
     private renderStats(root: HTMLElement) {
@@ -869,12 +864,9 @@ export class MediaDetail extends Component<MediaDetailState> {
         else if (dominantType === "Watching") { verb = "Watched"; totalLabel = "Total Watchtime"; }
         else if (dominantType === "Reading") { verb = "Read"; totalLabel = "Total Readtime"; }
 
-        const isReadingType = ["Novel", "Visual Novel", "Manga", "WebNovel", "NonFiction"].includes(media.content_type || "");
-        // For reading speed, only use time from logs tagged as Reading
-        const readingMin = isReadingType
-            ? logs.filter(l => (l.activity_type || media.default_activity_type) === 'Reading').reduce((acc, l) => acc + l.duration_minutes, 0)
-            : 0;
-        const readingSpeedHtml = isReadingType && readingMin > 0 ? this.computeReadingSpeedHtml(media, readingMin, readingSpeedSettings) : "";
+        const readingSpeedHtml = isReadingContentType(media.content_type || "")
+            ? this.computeReadingSpeedHtml(media, logs, readingSpeedSettings)
+            : "";
 
         statsDiv.innerHTML = `
             <span style="color: var(--text-secondary);">First ${verb}: <strong style="color: var(--text-primary);">${firstLogDate}</strong></span>
