@@ -103,7 +103,9 @@ function computeMediaSpeedInputs(media: Media, sessions: ClassifiedSession[]): M
 
     const workSpeed = dualHours > 0 ? dualCharacters / dualHours : null;
     const metadataTotal = readMetadataTotal(media);
-    const anchorSpeed = media.tracking_status === 'Complete' && metadataTotal !== null && immersionMinutes > 0
+    const hasUntimedReading = sessions.some(session => session.evidence === 'charactersOnly');
+    const anchorSpeed = media.tracking_status === 'Complete' && metadataTotal !== null
+        && immersionMinutes > 0 && !hasUntimedReading
         ? metadataTotal / (immersionMinutes / 60)
         : null;
 

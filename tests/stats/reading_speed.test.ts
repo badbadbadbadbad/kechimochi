@@ -236,6 +236,18 @@ describe('reading_speed.ts', () => {
                 expect(estimate.remainingMinutes).toBeNull();
             });
 
+            it('prefers its own dual sessions over the anchor on a Complete work carrying untimed reading', () => {
+                const media = buildMedia({ tracking_status: 'Complete', extra_data: characterCountExtraData(100000) });
+                const logs = [
+                    buildLog({ duration_minutes: 60, characters: 5000 }),
+                    buildLog({ duration_minutes: 60, characters: 5000 }),
+                    buildLog({ duration_minutes: 0, characters: 90000 }),
+                ];
+                const estimate = estimateMediaReadingSpeed(media, logs, null);
+                expect(estimate.source).toBe('workSessions');
+                expect(estimate.charactersPerHour).toBe(5000);
+            });
+
             it('has no anchor speed on a Complete work with characters but zero immersion minutes', () => {
                 const media = buildMedia({ tracking_status: 'Complete', extra_data: characterCountExtraData(10000) });
                 const logs = [buildLog({ duration_minutes: 0, characters: 3000 })];
