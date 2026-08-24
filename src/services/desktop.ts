@@ -27,6 +27,8 @@ import type {
     TimelineEvent,
     TimelinePage,
     TimelinePageRequest,
+    TimelineBucketPage,
+    TimelineBucketRequest,
     MediaCsvImportSelection,
     MediaConflict,
     ActivityCsvAnalysis,
@@ -120,6 +122,10 @@ export class DesktopServices implements AppServices {
     getTimelinePage(request: TimelinePageRequest): Promise<TimelinePage> {
         return measureTransport('ipc', 'timeline_page', () =>
             invoke('get_timeline_page', { request }));
+    }
+    getTimelineBuckets(request: TimelineBucketRequest): Promise<TimelineBucketPage> {
+        return measureTransport('ipc', 'timeline_buckets', () =>
+            invoke('get_timeline_buckets', { request }));
     }
 
     initializeUserDb(fallbackUsername?: string):Promise<void>            { return invoke('initialize_user_db', { fallbackUsername }); }
@@ -313,8 +319,8 @@ export class DesktopServices implements AppServices {
     async loadCoverImage(coverRef: string): Promise<string | null> {
         if (!coverRef || coverRef.trim() === '') return null;
         try {
-            const bytes = await invoke<number[]>('read_file_bytes', { path: coverRef });
-            const blob = new Blob([new Uint8Array(bytes)]);
+            const bytes = await invoke<ArrayBuffer>('read_file_bytes', { path: coverRef });
+            const blob = new Blob([bytes]);
             return URL.createObjectURL(blob);
         } catch {
             return null;

@@ -17,6 +17,8 @@ import type {
     TimelineEvent,
     TimelinePage,
     TimelinePageRequest,
+    TimelineBucketPage,
+    TimelineBucketRequest,
     MediaCsvImportSelection,
     MediaConflict,
     ActivityCsvAnalysis,
@@ -60,6 +62,8 @@ export type {
     TimelineEvent,
     TimelinePage,
     TimelinePageRequest,
+    TimelineBucketPage,
+    TimelineBucketRequest,
     MediaCsvRow,
     MediaCsvImportSelection,
     MediaConflict,
@@ -113,6 +117,7 @@ export interface AppServices {
     getLogsForMedia(mediaId: number): Promise<ActivitySummary[]>;
     getTimelineEvents(): Promise<TimelineEvent[]>;
     getTimelinePage(request: TimelinePageRequest): Promise<TimelinePage>;
+    getTimelineBuckets(request: TimelineBucketRequest): Promise<TimelineBucketPage>;
 
     initializeUserDb(fallbackUsername?: string): Promise<void>;
     clearActivities(): Promise<void>;

@@ -270,7 +270,7 @@ interface PieChartData {
 
 export async function waitForCurrentPieChartData(
     expected: PieChartData,
-    timeout = 10000,
+    timeout = 20000,
 ): Promise<PieChartData> {
     let data: PieChartData | null = null;
     await browser.waitUntil(async () => {

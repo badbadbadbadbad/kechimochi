@@ -296,13 +296,15 @@ export async function editExtraField(key: string, newValue: string): Promise<voi
 }
 
 /**
- * Gets the text value of a projection badge (remaining or completion).
+ * Gets the text value of a projection badge (remaining or completion),
+ * or an empty string while the badge is absent.
  */
 export async function getProjectionValue(id: string): Promise<string> {
-    const el = $(`#${id}`);
-    await el.waitForDisplayed({ timeout: 5000 });
-    const strong = el.$('strong');
-    return await strong.getText();
+    const element = $(`#${id}`);
+    if (!await element.isDisplayed().catch(() => false)) {
+        return '';
+    }
+    return await element.$('strong').getText().catch(() => '');
 }
 
 type MilestoneFormValues = {
