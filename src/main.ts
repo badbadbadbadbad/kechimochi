@@ -212,6 +212,7 @@ export class App {
         this.mediaContainer.style.height = '100%';
         this.mediaContainer.style.display = 'none';
         this.timelineContainer = document.createElement('div');
+        this.timelineContainer.classList.add('timeline-view-container');
         this.timelineContainer.style.height = '100%';
         this.timelineContainer.style.display = 'none';
         this.profileContainer = document.createElement('div');
@@ -645,8 +646,9 @@ export class App {
     private renderCurrentView(forceMediaRender = false) {
         this.dashboardContainer.style.display = this.currentView === VIEW_NAMES.DASHBOARD ? 'block' : 'none';
         this.mediaContainer.style.display = this.currentView === VIEW_NAMES.MEDIA ? 'block' : 'none';
-        this.timelineContainer.style.display = this.currentView === VIEW_NAMES.TIMELINE ? 'block' : 'none';
+        this.timelineContainer.style.display = this.currentView === VIEW_NAMES.TIMELINE ? 'flex' : 'none';
         this.profileContainer.style.display = this.currentView === VIEW_NAMES.PROFILE ? 'block' : 'none';
+        this.viewContainer.classList.toggle('is-timeline-view', this.currentView === VIEW_NAMES.TIMELINE);
 
         if (this.currentView === VIEW_NAMES.DASHBOARD) this.dashboard.render();
         else if (

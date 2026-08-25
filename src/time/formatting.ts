@@ -66,6 +66,14 @@ export function formatStatsDuration(totalMinutes: number, skipZeroMinutes: boole
 }
 
 /**
+ * Same as {@link formatStatsDuration} with `skipZeroMinutes`, but renders nothing at zero so
+ * callers can drop the label entirely.
+ */
+export function formatOptionalStatsDuration(totalMinutes: number): string {
+    return totalMinutes > 0 ? formatStatsDuration(totalMinutes, true) : '';
+}
+
+/**
  * Formats duration for activity logs: "X minutes (HhMmin)" if >= 60, otherwise "X minutes".
  */
 export function formatLoggedDuration(totalMinutes: number, capitalizeMinutes: boolean = false): string {
