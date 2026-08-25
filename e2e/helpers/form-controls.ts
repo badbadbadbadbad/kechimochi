@@ -125,3 +125,14 @@ export async function getSelectValue(selector: string): Promise<string | null> {
     const result = await browser.execute(applyRequestInPage, selector, request).catch(() => null);
     return typeof result === 'string' ? result : null;
 }
+
+/**
+ * Reads the visible label of the chosen option, as opposed to `getSelectValue`,
+ * which reads the underlying value.
+ */
+export async function getSelectedOptionLabel(selector: string): Promise<string> {
+    return await browser.execute(elementSelector => {
+        const select = document.querySelector(elementSelector) as HTMLSelectElement | null;
+        return select?.selectedOptions[0]?.textContent?.trim() ?? '';
+    }, selector);
+}

@@ -713,9 +713,19 @@ a {
 }
 
 .main-content {
+  --view-padding-top: 2rem;
+  --view-padding-bottom: 2rem;
   flex: 1;
-  padding: 2rem;
+  padding: var(--view-padding-top) 2rem var(--view-padding-bottom);
   overflow-y: auto;
+}
+
+/* The timeline paints a full-bleed backdrop, so it carries the scroller's
+   vertical padding on its own root instead of leaving an uncovered strip
+   above and below the wave. */
+.main-content.is-timeline-view {
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 .mobile-top-bar {
@@ -818,10 +828,22 @@ input:focus, select:focus {
   box-shadow: var(--shadow-sm);
 }
 
+.timeline-view-container {
+  display: flex;
+  flex-direction: column;
+}
+
 .timeline-root {
+  position: relative;
+  isolation: isolate;
+  flex: 1 0 auto;
+  width: 100%;
   max-width: 1120px;
+  min-height: 100%;
   margin: 0 auto;
-  padding-bottom: 2.5rem;
+  padding-top: var(--view-padding-top, 2rem);
+  padding-bottom: calc(var(--view-padding-bottom, 2rem) + 2.5rem);
+  touch-action: pan-y;
 }
 
 /*
@@ -852,6 +874,8 @@ input:focus, select:focus {
 }
 
 .timeline-stack {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
@@ -978,6 +1002,11 @@ input:focus, select:focus {
   flex: 0 1 190px;
 }
 
+.timeline-filter-field-zoom {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
 .timeline-filter-label {
   color: var(--text-secondary);
   font-size: 0.76rem;
@@ -1007,6 +1036,10 @@ input:focus, select:focus {
   pointer-events: none;
   box-shadow: 0 0 18px color-mix(in srgb, var(--accent-blue) 10%, transparent);
   z-index: 0;
+}
+
+.timeline-shell.is-empty::before {
+  display: none;
 }
 
 .timeline-page-sentinel {
@@ -1069,7 +1102,7 @@ input:focus, select:focus {
 .timeline-month-marker {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 110px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   min-height: 2.6rem;
 }
@@ -1093,10 +1126,12 @@ input:focus, select:focus {
   font-weight: 800;
   letter-spacing: 0;
   text-align: center;
+  white-space: nowrap;
 }
 
 .timeline-month-label::before,
 .timeline-month-label::after {
+  flex: none;
   color: color-mix(in srgb, var(--accent-blue) 70%, var(--text-secondary) 30%);
   font-size: 0.9rem;
   line-height: 1;
@@ -1397,6 +1432,261 @@ input:focus, select:focus {
 
 .timeline-entry.kind-milestone {
   --timeline-accent: color-mix(in srgb, var(--accent-yellow) 72%, var(--accent-green) 28%);
+}
+
+.timeline-compact-row {
+  --timeline-accent: var(--accent-blue);
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.85rem;
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--timeline-accent) 18%, var(--border-color) 82%);
+  background: color-mix(in srgb, var(--bg-card) 92%, transparent);
+}
+
+.timeline-compact-meta,
+.timeline-compact-detail {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.timeline-compact-meta {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  row-gap: 0.2rem;
+}
+
+.timeline-compact-detail {
+  justify-content: flex-end;
+}
+
+.timeline-compact-row.kind-started {
+  --timeline-accent: var(--accent-blue);
+}
+
+.timeline-compact-row.kind-finished {
+  --timeline-accent: var(--accent-green);
+}
+
+.timeline-compact-row.kind-paused {
+  --timeline-accent: var(--accent-yellow);
+}
+
+.timeline-compact-row.kind-dropped {
+  --timeline-accent: var(--accent-red);
+}
+
+.timeline-compact-row.kind-milestone {
+  --timeline-accent: color-mix(in srgb, var(--accent-yellow) 72%, var(--accent-green) 28%);
+}
+
+.timeline-compact-node {
+  justify-self: center;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--timeline-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--timeline-accent) 18%, transparent);
+}
+
+.timeline-compact-date,
+.timeline-compact-metric {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.timeline-compact-kind {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--timeline-accent) 70%, var(--text-primary) 30%);
+}
+
+/* A milestone row trades the date and metrics for the milestone's own name, so the meta side
+   must stay on one line for the name to ellipsize instead of wrapping. */
+.timeline-compact-meta.is-milestone {
+  flex-wrap: nowrap;
+}
+
+.timeline-compact-milestone {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.timeline-compact-metric {
+  flex: 0 0 auto;
+}
+
+.timeline-separator {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.timeline-compact-detail .timeline-media-link {
+  display: block;
+  flex: 0 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeline-bucket-row {
+  --timeline-accent: var(--accent-blue);
+  position: relative;
+  z-index: 1;
+}
+
+.timeline-bucket-row.card {
+  background-color: color-mix(in srgb, var(--bg-card) 92%, transparent);
+}
+
+.timeline-bucket-row.kind-started {
+  --timeline-accent: var(--accent-blue);
+}
+
+.timeline-bucket-row.kind-finished {
+  --timeline-accent: var(--accent-green);
+}
+
+.timeline-bucket-row.kind-paused {
+  --timeline-accent: var(--accent-yellow);
+}
+
+.timeline-bucket-row.kind-dropped {
+  --timeline-accent: var(--accent-red);
+}
+
+.timeline-bucket-row.kind-milestone {
+  --timeline-accent: color-mix(in srgb, var(--accent-yellow) 72%, var(--accent-green) 28%);
+}
+
+.timeline-bucket-node {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--timeline-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--timeline-accent) 18%, transparent);
+}
+
+.timeline-bucket-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.timeline-bucket-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.timeline-bucket-label {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 1.1rem;
+}
+
+.timeline-bucket-totals {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.6rem;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.timeline-bucket-pips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.timeline-bucket-pip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.6rem;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: #ffffff;
+  background: color-mix(in srgb, var(--timeline-accent, var(--accent-blue)) 80%, black 20%);
+}
+
+.timeline-bucket-pip.kind-started {
+  --timeline-accent: var(--accent-blue);
+}
+
+.timeline-bucket-pip.kind-finished {
+  --timeline-accent: var(--accent-green);
+}
+
+.timeline-bucket-pip.kind-paused {
+  --timeline-accent: var(--accent-yellow);
+}
+
+.timeline-bucket-pip.kind-dropped {
+  --timeline-accent: var(--accent-red);
+}
+
+.timeline-bucket-pip.kind-milestone {
+  --timeline-accent: color-mix(in srgb, var(--accent-yellow) 72%, var(--accent-green) 28%);
+}
+
+.timeline-bucket-covers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.timeline-bucket-cover {
+  width: 76px;
+}
+
+.timeline-bucket-covers .timeline-bucket-cover[hidden],
+.timeline-bucket-covers .timeline-bucket-cover-overflow[hidden] {
+  display: none;
+}
+
+.timeline-bucket-cover-overflow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 76px;
+  aspect-ratio: 3 / 4;
+  border-radius: calc(var(--radius-md) - 2px);
+  background: color-mix(in srgb, var(--bg-dark) 85%, var(--bg-card) 15%);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
 }
 
 /* Micro animations */
@@ -2015,6 +2305,58 @@ input:focus, select:focus {
 
 .media-grid-zoom-button:disabled,
 .media-grid-zoom-value:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.timeline-zoom {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--bg-card) 88%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.timeline-zoom-button,
+.timeline-zoom-value {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  line-height: 1;
+  border-radius: var(--radius-full);
+  transition: background-color var(--transition-fast), color var(--transition-fast), opacity var(--transition-fast);
+}
+
+.timeline-zoom-button {
+  width: 1.8rem;
+  height: 1.8rem;
+  font-size: 1rem;
+}
+
+.timeline-zoom-value {
+  min-width: 5.25rem;
+  padding: 0.45rem 0.35rem;
+  font-size: 0.72rem;
+}
+
+.timeline-zoom-button:hover:not(:disabled),
+.timeline-zoom-value:hover:not(:disabled) {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+}
+
+.timeline-zoom-button:focus-visible,
+.timeline-zoom-value:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent-green) 60%, white 40%);
+  outline-offset: 1px;
+}
+
+.timeline-zoom-button:disabled {
   cursor: not-allowed;
   opacity: 0.4;
 }
@@ -4104,7 +4446,8 @@ input:checked + .slider:before {
   }
 
   .main-content {
-    padding: 2rem 1rem 1rem;
+    --view-padding-bottom: 1rem;
+    padding: var(--view-padding-top) 1rem var(--view-padding-bottom);
   }
 
   #dashboard-columns {
@@ -4238,20 +4581,20 @@ input:checked + .slider:before {
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   }
 
-  .timeline-wave {
+  .timeline-root.is-zoom-detailed .timeline-wave {
     display: none;
   }
 
-  .timeline-shell::before {
+  .timeline-root.is-zoom-detailed .timeline-shell::before {
     left: 22px;
     transform: none;
   }
 
-  .timeline-month-marker {
+  .timeline-root.is-zoom-detailed .timeline-month-marker {
     grid-template-columns: 48px minmax(0, 1fr);
   }
 
-  .timeline-month-label {
+  .timeline-root.is-zoom-detailed .timeline-month-label {
     grid-column: 2;
     justify-self: start;
   }
@@ -4558,7 +4901,9 @@ input:checked + .slider:before {
   }
 
   .main-content {
-    padding: 0.75rem 0.75rem 0.75rem;
+    --view-padding-top: 0.75rem;
+    --view-padding-bottom: 0.75rem;
+    padding: var(--view-padding-top) 0.75rem var(--view-padding-bottom);
   }
 
   .card {
@@ -4582,6 +4927,11 @@ input:checked + .slider:before {
     flex-basis: 100%;
   }
 
+  .timeline-filter-field-zoom {
+    flex-basis: auto;
+    margin-left: 0;
+  }
+
   .timeline-card-header {
     align-items: flex-start;
   }
@@ -4597,6 +4947,20 @@ input:checked + .slider:before {
   .timeline-cover-shell {
     width: 120px;
   }
+
+  .timeline-bucket-covers .timeline-cover-shell {
+    width: 76px;
+  }
+
+  .timeline-bucket-header {
+    align-items: flex-start;
+  }
+
+  .timeline-bucket-totals {
+    order: 3;
+    flex-basis: 100%;
+  }
+
 
   .media-grid-toolbar {
     flex-wrap: wrap;

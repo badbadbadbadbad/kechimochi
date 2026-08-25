@@ -25,6 +25,8 @@ import type {
     TimelineEvent,
     TimelinePage,
     TimelinePageRequest,
+    TimelineBucketPage,
+    TimelineBucketRequest,
     MediaCsvImportSelection,
     MediaConflict,
     ActivityCsvAnalysis,
@@ -215,6 +217,9 @@ export class WebServices implements AppServices {
     getTimelineEvents():                    Promise<TimelineEvent[]>  { return get('/timeline'); }
     getTimelinePage(request: TimelinePageRequest): Promise<TimelinePage> {
         return postMeasured('/timeline/page', request, 'timeline_page');
+    }
+    getTimelineBuckets(request: TimelineBucketRequest): Promise<TimelineBucketPage> {
+        return postMeasured('/timeline/buckets', request, 'timeline_buckets');
     }
 
     initializeUserDb(fallbackUsername?: string):Promise<void>            { return post('/profiles/initialize', { fallback_username: fallbackUsername }); }

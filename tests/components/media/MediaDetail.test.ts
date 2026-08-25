@@ -115,7 +115,7 @@ describe('MediaDetail', () => {
 
     it('should render media details correctly', async () => {
         vi.mocked(api.getMilestones).mockResolvedValue([]);
-        vi.mocked(api.readFileBytes).mockResolvedValue([1, 2, 3]);
+        vi.mocked(api.readFileBytes).mockResolvedValue(new Uint8Array([1, 2, 3]).buffer);
 
         const component = new MediaDetailTestHarness(container, { ...mockMedia } as unknown as Media, [], [mockMedia as unknown as Media], 0, mockCallbacks);
         component.triggerMount();
@@ -327,7 +327,7 @@ describe('MediaDetail', () => {
 
     it('should use cached cover images without scheduling a second detail load', async () => {
         vi.mocked(api.getMilestones).mockResolvedValue([]);
-        vi.mocked(api.readFileBytes).mockResolvedValue([1, 2, 3]);
+        vi.mocked(api.readFileBytes).mockResolvedValue(new Uint8Array([1, 2, 3]).buffer);
 
         await MediaCoverLoader.load('/path/to/img.jpg');
         vi.clearAllMocks();
@@ -599,7 +599,7 @@ describe('MediaDetail', () => {
 
     it('should preserve a loaded detail cover in the shared cache on destroy', async () => {
         vi.mocked(api.getMilestones).mockResolvedValue([]);
-        vi.mocked(api.readFileBytes).mockResolvedValue([1, 2, 3]);
+        vi.mocked(api.readFileBytes).mockResolvedValue(new Uint8Array([1, 2, 3]).buffer);
 
         const component = new MediaDetailTestHarness(container, { ...mockMedia } as unknown as Media, [], [mockMedia as unknown as Media], 0, mockCallbacks);
         component.triggerMount();

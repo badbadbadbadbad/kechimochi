@@ -10,13 +10,19 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use rusqlite::{Connection, Result};
 
 use crate::models::{
-    TimelineEvent, TimelineEventKind, TimelinePage, TimelinePageRequest, TimelineSummary,
+    TimelineBucket, TimelineBucketGranularity, TimelineBucketHighlight, TimelineBucketPage,
+    TimelineBucketRequest, TimelineEvent, TimelineEventKind, TimelinePage, TimelinePageRequest,
+    TimelineSummary,
 };
 use crate::read_performance::{Measured, Timings};
 
 pub const MAX_TIMELINE_PAGE_SIZE: i64 = 100;
 const MAX_TIMELINE_OFFSET: i64 = 1_000_000;
 const MAX_TIMELINE_SEARCH_CHARS: usize = 200;
+/// Cover-strip capacity per bucket, derived from the CSS that lays the strip out
+const MAX_MONTH_BUCKET_HIGHLIGHTS: usize = 14;
+const MAX_YEAR_BUCKET_HIGHLIGHTS: usize = 28;
+const MAX_TIMELINE_BUCKETS: usize = 600;
 
 #[derive(Clone)]
 struct TimelineMediaContext {
@@ -32,6 +38,12 @@ struct TimelineMediaContext {
     total_minutes: i64,
     total_characters: i64,
     same_day_terminal: bool,
+}
+
+struct TimelineBucketMediaCover {
+    media_title: String,
+    media_variant: String,
+    cover_image: String,
 }
 
 struct TimelineMediaRow {
@@ -73,6 +85,17 @@ pub fn validate_page_request(request: &TimelinePageRequest) -> std::result::Resu
     Ok(())
 }
 
+pub fn validate_bucket_request(
+    request: &TimelineBucketRequest,
+) -> std::result::Result<(), String> {
+    if request.search_query.chars().count() > MAX_TIMELINE_SEARCH_CHARS {
+        return Err(format!(
+            "timeline search is limited to {MAX_TIMELINE_SEARCH_CHARS} characters"
+        ));
+    }
+    Ok(())
+}
+
 pub fn get_timeline_page(
     conn: &Connection,
     request: &TimelinePageRequest,
@@ -82,6 +105,20 @@ pub fn get_timeline_page(
     let all_events = query_timeline_events(&transaction, &mut timings)?;
 
     let page = timings.aggregate(|| build_page(all_events, request));
+    timings.query(|| transaction.commit())?;
+    Ok(timings.finish(page))
+}
+
+pub fn get_timeline_buckets(
+    conn: &Connection,
+    request: &TimelineBucketRequest,
+) -> Result<Measured<TimelineBucketPage>> {
+    let mut timings = Timings::default();
+    let transaction = timings.query(|| conn.unchecked_transaction())?;
+    let all_events = query_timeline_events(&transaction, &mut timings)?;
+    let bucket_totals =
+        query_media_bucket_totals(&transaction, &mut timings, &request.granularity)?;
+    let page = timings.aggregate(|| build_bucket_page(all_events, bucket_totals, request));
     timings.query(|| transaction.commit())?;
     Ok(timings.finish(page))
 }
@@ -297,67 +334,118 @@ fn query_dominant_activity_types(
     }))
 }
 
-fn build_page(events: Vec<TimelineEvent>, request: &TimelinePageRequest) -> TimelinePage {
-    let all_event_count = i64::try_from(events.len()).unwrap_or(i64::MAX);
-    let available_years = events
+/// One row per (media, month) with logged minutes/characters summed across
+/// `activity_logs`. This is intentionally independent of any lifecycle event:
+/// a title read across several months logs time in all of them even though it
+/// only ever produces one or two timeline events.
+fn query_media_bucket_totals(
+    conn: &Connection,
+    timings: &mut Timings,
+    granularity: &TimelineBucketGranularity,
+) -> Result<Vec<(i64, String, i64, i64)>> {
+    let key_len = i64::try_from(bucket_key_len(granularity)).unwrap_or(7);
+    timings.query(|| {
+        let mut statement = conn.prepare(
+            "SELECT media_id,
+                    substr(date, 1, ?1),
+                    COALESCE(SUM(duration_minutes), 0),
+                    COALESCE(SUM(characters), 0)
+             FROM main.activity_logs
+             WHERE date <> ''
+             GROUP BY media_id, substr(date, 1, ?1)",
+        )?;
+        let rows = statement.query_map([key_len], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, i64>(2)?,
+                row.get::<_, i64>(3)?,
+            ))
+        })?;
+        rows.collect::<Result<Vec<_>>>()
+    })
+}
+
+fn compute_available_years(events: &[TimelineEvent]) -> Vec<i32> {
+    events
         .iter()
         .filter_map(|event| event.date.get(0..4)?.parse::<i32>().ok())
         .collect::<BTreeSet<_>>()
         .into_iter()
         .rev()
-        .collect::<Vec<_>>();
-    let mut media_ids_by_title = HashMap::<String, HashSet<i64>>::new();
-    for event in &events {
+        .collect()
+}
+
+fn compute_ambiguous_titles(events: &[TimelineEvent]) -> Vec<String> {
+    let mut media_ids_by_title = HashMap::<&str, HashSet<i64>>::new();
+    for event in events {
         media_ids_by_title
-            .entry(event.media_title.clone())
+            .entry(event.media_title.as_str())
             .or_default()
             .insert(event.media_id);
     }
     let mut ambiguous_titles = media_ids_by_title
         .into_iter()
-        .filter_map(|(title, media_ids)| (media_ids.len() > 1).then_some(title))
+        .filter_map(|(title, media_ids)| (media_ids.len() > 1).then_some(title.to_string()))
         .collect::<Vec<_>>();
     ambiguous_titles.sort();
+    ambiguous_titles
+}
+
+fn matches_year(event: &TimelineEvent, year: Option<i32>) -> bool {
+    match year {
+        None => true,
+        Some(target) => {
+            event
+                .date
+                .get(0..4)
+                .and_then(|value| value.parse::<i32>().ok())
+                == Some(target)
+        }
+    }
+}
+
+fn matches_kind(event: &TimelineEvent, kind: Option<&TimelineEventKind>) -> bool {
+    match kind {
+        None => true,
+        Some(target) => &event.kind == target,
+    }
+}
+
+fn matches_search(event: &TimelineEvent, normalized_query: &str) -> bool {
+    normalized_query.is_empty()
+        || event.media_title.to_lowercase().contains(normalized_query)
+        || event
+            .media_variant
+            .to_lowercase()
+            .contains(normalized_query)
+        || event
+            .milestone_name
+            .as_deref()
+            .unwrap_or_default()
+            .to_lowercase()
+            .contains(normalized_query)
+        || event
+            .activity_type
+            .to_lowercase()
+            .contains(normalized_query)
+        || event
+            .content_type
+            .to_lowercase()
+            .contains(normalized_query)
+}
+
+fn build_page(events: Vec<TimelineEvent>, request: &TimelinePageRequest) -> TimelinePage {
+    let all_event_count = i64::try_from(events.len()).unwrap_or(i64::MAX);
+    let available_years = compute_available_years(&events);
+    let ambiguous_titles = compute_ambiguous_titles(&events);
     let normalized_query = request.search_query.trim().to_lowercase();
     let filtered = events
         .into_iter()
         .filter(|event| {
-            if request.year.is_some_and(|year| {
-                event
-                    .date
-                    .get(0..4)
-                    .and_then(|value| value.parse::<i32>().ok())
-                    != Some(year)
-            }) {
-                return false;
-            }
-            if request
-                .kind
-                .as_ref()
-                .is_some_and(|kind| kind != &event.kind)
-            {
-                return false;
-            }
-            normalized_query.is_empty()
-                || event.media_title.to_lowercase().contains(&normalized_query)
-                || event
-                    .media_variant
-                    .to_lowercase()
-                    .contains(&normalized_query)
-                || event
-                    .milestone_name
-                    .as_deref()
-                    .unwrap_or_default()
-                    .to_lowercase()
-                    .contains(&normalized_query)
-                || event
-                    .activity_type
-                    .to_lowercase()
-                    .contains(&normalized_query)
-                || event
-                    .content_type
-                    .to_lowercase()
-                    .contains(&normalized_query)
+            matches_year(event, request.year)
+                && matches_kind(event, request.kind.as_ref())
+                && matches_search(event, &normalized_query)
         })
         .collect::<Vec<_>>();
 
@@ -384,6 +472,263 @@ fn build_page(events: Vec<TimelineEvent>, request: &TimelinePageRequest) -> Time
     }
 }
 
+fn max_bucket_highlights(granularity: &TimelineBucketGranularity) -> usize {
+    match granularity {
+        TimelineBucketGranularity::Month => MAX_MONTH_BUCKET_HIGHLIGHTS,
+        TimelineBucketGranularity::Year => MAX_YEAR_BUCKET_HIGHLIGHTS,
+    }
+}
+
+fn bucket_key_len(granularity: &TimelineBucketGranularity) -> usize {
+    match granularity {
+        TimelineBucketGranularity::Month => 7,
+        TimelineBucketGranularity::Year => 4,
+    }
+}
+
+fn bucket_start_date(key: &str, granularity: &TimelineBucketGranularity) -> String {
+    match granularity {
+        TimelineBucketGranularity::Month => format!("{key}-01"),
+        TimelineBucketGranularity::Year => format!("{key}-01-01"),
+    }
+}
+
+/// Orders a bucket's covers by how much of that period the user actually spent on each title.
+/// Minutes and characters are each normalised against the bucket's own maximum, so a
+/// time-tracked title and a character-tracked one stay comparable without inventing a
+/// characters-per-minute exchange rate. Equal scores keep their incoming order.
+fn sort_media_by_immersion(
+    media_ids: &mut [i64],
+    media_totals: Option<&HashMap<i64, (i64, i64)>>,
+) {
+    let Some(media_totals) = media_totals else {
+        return;
+    };
+    let (max_minutes, max_characters) = media_totals.values().fold(
+        (0i64, 0i64),
+        |(max_minutes, max_characters), (minutes, characters)| {
+            (max_minutes.max(*minutes), max_characters.max(*characters))
+        },
+    );
+    let immersion_score = |media_id: i64| -> f64 {
+        let (minutes, characters) = media_totals.get(&media_id).copied().unwrap_or((0, 0));
+        let minutes_share = if max_minutes > 0 {
+            minutes as f64 / max_minutes as f64
+        } else {
+            0.0
+        };
+        let characters_share = if max_characters > 0 {
+            characters as f64 / max_characters as f64
+        } else {
+            0.0
+        };
+        minutes_share + characters_share
+    };
+
+    let mut decorated = media_ids
+        .iter()
+        .enumerate()
+        .map(|(index, &media_id)| (immersion_score(media_id), index, media_id))
+        .collect::<Vec<_>>();
+    decorated.sort_unstable_by(|left, right| {
+        right
+            .0
+            .total_cmp(&left.0)
+            .then_with(|| left.1.cmp(&right.1))
+    });
+    for (slot, (_, _, media_id)) in media_ids.iter_mut().zip(decorated) {
+        *slot = media_id;
+    }
+}
+
+fn build_bucket_page(
+    events: Vec<TimelineEvent>,
+    bucket_totals: Vec<(i64, String, i64, i64)>,
+    request: &TimelineBucketRequest,
+) -> TimelineBucketPage {
+    let available_years = compute_available_years(&events);
+    let ambiguous_titles = compute_ambiguous_titles(&events);
+
+    let normalized_query = request.search_query.trim().to_lowercase();
+    let search_matched_events = events
+        .into_iter()
+        .filter(|event| matches_search(event, &normalized_query))
+        .collect::<Vec<_>>();
+    let search_matched_media = search_matched_events
+        .iter()
+        .map(|event| event.media_id)
+        .collect::<HashSet<_>>();
+
+    let mut media_covers = HashMap::<i64, TimelineBucketMediaCover>::new();
+    for event in &search_matched_events {
+        if event.cover_image.is_empty() {
+            continue;
+        }
+        media_covers
+            .entry(event.media_id)
+            .or_insert_with(|| TimelineBucketMediaCover {
+                media_title: event.media_title.clone(),
+                media_variant: event.media_variant.clone(),
+                cover_image: event.cover_image.clone(),
+            });
+    }
+
+    let filtered_events = search_matched_events
+        .into_iter()
+        .filter(|event| matches_year(event, request.year))
+        .collect::<Vec<_>>();
+
+    let summary = summarize(&filtered_events);
+    let key_len = bucket_key_len(&request.granularity);
+
+    let mut bucket_keys = BTreeSet::new();
+    for event in &filtered_events {
+        if let Some(key) = event.date.get(0..key_len) {
+            bucket_keys.insert(key.to_string());
+        }
+    }
+    for (media_id, bucket_key, _, _) in &bucket_totals {
+        if !search_matched_media.contains(media_id) {
+            continue;
+        }
+        if let Some(key) = bucket_key.get(0..key_len) {
+            bucket_keys.insert(key.to_string());
+        }
+    }
+    if let Some(year) = request.year {
+        bucket_keys.retain(|key| {
+            key.get(0..4).and_then(|value| value.parse::<i32>().ok()) == Some(year)
+        });
+    }
+
+    let mut bucket_index = HashMap::<String, usize>::with_capacity(bucket_keys.len());
+    let mut buckets = Vec::with_capacity(bucket_keys.len());
+    for key in bucket_keys {
+        bucket_index.insert(key.clone(), buckets.len());
+        let start_date = bucket_start_date(&key, &request.granularity);
+        buckets.push(TimelineBucket {
+            key,
+            start_date,
+            started_count: 0,
+            finished_count: 0,
+            paused_count: 0,
+            dropped_count: 0,
+            milestone_count: 0,
+            logged_minutes: 0,
+            logged_characters: 0,
+            highlights: Vec::new(),
+            distinct_media_count: 0,
+        });
+    }
+    let bucket_count = buckets.len();
+    let mut bucket_media_totals = (0..bucket_count)
+        .map(|_| HashMap::<i64, (i64, i64)>::new())
+        .collect::<Vec<_>>();
+    let mut bucket_distinct_media = vec![HashSet::<i64>::new(); bucket_count];
+    let mut bucket_highlight_seen = vec![HashSet::<i64>::new(); bucket_count];
+    let mut bucket_highlight_candidates = vec![Vec::<i64>::new(); bucket_count];
+
+    for (media_id, bucket_key, minutes, characters) in &bucket_totals {
+        if !search_matched_media.contains(media_id) {
+            continue;
+        }
+        let Some(key) = bucket_key.get(0..key_len) else {
+            continue;
+        };
+        let Some(&index) = bucket_index.get(key) else {
+            continue;
+        };
+        let bucket = &mut buckets[index];
+        bucket.logged_minutes += minutes;
+        bucket.logged_characters += characters;
+        let media_total = bucket_media_totals[index]
+            .entry(*media_id)
+            .or_insert((0, 0));
+        media_total.0 += minutes;
+        media_total.1 += characters;
+    }
+
+    for event in &filtered_events {
+        let Some(key) = event.date.get(0..key_len) else {
+            continue;
+        };
+        let Some(&index) = bucket_index.get(key) else {
+            continue;
+        };
+
+        match event.kind {
+            TimelineEventKind::Started => buckets[index].started_count += 1,
+            TimelineEventKind::Finished => buckets[index].finished_count += 1,
+            TimelineEventKind::Paused => buckets[index].paused_count += 1,
+            TimelineEventKind::Dropped => buckets[index].dropped_count += 1,
+            TimelineEventKind::Milestone => buckets[index].milestone_count += 1,
+        }
+
+        bucket_distinct_media[index].insert(event.media_id);
+
+        if matches!(
+            event.kind,
+            TimelineEventKind::Started | TimelineEventKind::Finished
+        ) && media_covers.contains_key(&event.media_id)
+            && bucket_highlight_seen[index].insert(event.media_id)
+        {
+            bucket_highlight_candidates[index].push(event.media_id);
+        }
+    }
+
+    for index in 0..bucket_count {
+        bucket_distinct_media[index].extend(bucket_media_totals[index].keys().copied());
+        let mut logged_only_media = bucket_media_totals[index]
+            .keys()
+            .copied()
+            .filter(|media_id| {
+                media_covers.contains_key(media_id)
+                    && !bucket_highlight_seen[index].contains(media_id)
+            })
+            .collect::<Vec<_>>();
+        logged_only_media.sort_unstable();
+        for media_id in logged_only_media {
+            bucket_highlight_seen[index].insert(media_id);
+            bucket_highlight_candidates[index].push(media_id);
+        }
+    }
+
+    for index in 0..bucket_count {
+        let mut candidates = std::mem::take(&mut bucket_highlight_candidates[index]);
+        if !candidates.is_empty() {
+            sort_media_by_immersion(&mut candidates, Some(&bucket_media_totals[index]));
+            candidates.truncate(max_bucket_highlights(&request.granularity));
+            buckets[index].highlights = candidates
+                .into_iter()
+                .filter_map(|media_id| {
+                    media_covers
+                        .get(&media_id)
+                        .map(|cover| TimelineBucketHighlight {
+                            media_id,
+                            media_title: cover.media_title.clone(),
+                            media_variant: cover.media_variant.clone(),
+                            cover_image: cover.cover_image.clone(),
+                        })
+                })
+                .collect();
+        }
+        let distinct = bucket_distinct_media[index].len();
+        buckets[index].distinct_media_count = i64::try_from(distinct).unwrap_or(i64::MAX);
+    }
+
+    buckets.sort_by(|left, right| right.key.cmp(&left.key));
+    buckets.truncate(MAX_TIMELINE_BUCKETS);
+
+    TimelineBucketPage {
+        request_id: request.request_id,
+        granularity: request.granularity.clone(),
+        available_years,
+        ambiguous_titles,
+        summary,
+        buckets,
+    }
+}
+
 fn summarize(events: &[TimelineEvent]) -> TimelineSummary {
     let mut media_totals = HashMap::<i64, (i64, i64)>::new();
     let mut completed_titles = HashSet::new();
@@ -400,6 +745,7 @@ fn summarize(events: &[TimelineEvent]) -> TimelineSummary {
         total_minutes: media_totals.values().map(|value| value.0).sum(),
         completed_titles: i64::try_from(completed_titles.len()).unwrap_or(i64::MAX),
         total_characters: media_totals.values().map(|value| value.1).sum(),
+        filtered_media_count: i64::try_from(media_totals.len()).unwrap_or(i64::MAX),
     }
 }
 
@@ -559,7 +905,7 @@ mod tests {
                 search_query: "completed".to_string(),
                 offset: 0,
                 limit: 2,
-            },
+                },
         )
         .unwrap()
         .value;
@@ -572,9 +918,50 @@ mod tests {
         assert_eq!(page.available_years, vec![2026, 2025]);
         assert_eq!(page.summary.total_minutes, 90);
         assert_eq!(page.summary.completed_titles, 1);
+        assert_eq!(page.summary.filtered_media_count, 1);
         let json = serde_json::to_string(&page).unwrap();
         assert!(!json.contains("large notes"));
         assert!(!json.contains("description must not"));
+    }
+
+    #[test]
+    fn filtered_media_count_reflects_the_kind_filter_not_just_finished_titles() {
+        let directory = tempfile::tempdir().unwrap();
+        let conn = db::init_db(directory.path().to_path_buf(), Some("timeline-kind-filter")).unwrap();
+        let paused_id = db::add_media_with_id(&conn, &media("Paused Title", "Paused")).unwrap();
+        let dropped_id = db::add_media_with_id(&conn, &media("Dropped Title", "Dropped")).unwrap();
+        for (media_id, date) in [(paused_id, "2026-01-01"), (dropped_id, "2026-01-05")] {
+            db::add_log(
+                &conn,
+                &ActivityLog {
+                    id: None,
+                    media_id,
+                    duration_minutes: 20,
+                    characters: 0,
+                    date: date.to_string(),
+                    activity_type: "Reading".to_string(),
+                    notes: String::new(),
+                },
+            )
+            .unwrap();
+        }
+
+        let page = get_timeline_page(
+            &conn,
+            &TimelinePageRequest {
+                request_id: 1,
+                year: None,
+                kind: Some(TimelineEventKind::Paused),
+                search_query: String::new(),
+                offset: 0,
+                limit: MAX_TIMELINE_PAGE_SIZE,
+                },
+        )
+        .unwrap()
+        .value;
+
+        assert_eq!(page.summary.completed_titles, 0);
+        assert_eq!(page.summary.filtered_media_count, 1);
     }
 
     #[test]
@@ -610,5 +997,419 @@ mod tests {
         let events = get_all_timeline_events(&conn).unwrap();
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].activity_type, "Watching");
+    }
+
+    fn media_with_cover(title: &str, tracking_status: &str, cover_image: &str) -> Media {
+        Media {
+            cover_image: cover_image.to_string(),
+            ..media(title, tracking_status)
+        }
+    }
+
+    fn bucket_request(
+        granularity: TimelineBucketGranularity,
+        year: Option<i32>,
+        search_query: &str,
+    ) -> TimelineBucketRequest {
+        TimelineBucketRequest {
+            request_id: 1,
+            granularity,
+            year,
+            search_query: search_query.to_string(),
+        }
+    }
+
+    #[test]
+    fn folds_month_and_year_buckets_and_year_equals_sum_of_months() {
+        let directory = tempfile::tempdir().unwrap();
+        let conn = db::init_db(directory.path().to_path_buf(), Some("bucket-fold")).unwrap();
+        let media_id = db::add_media_with_id(&conn, &media("Novel", "Complete")).unwrap();
+        for (date, minutes, characters) in
+            [("2026-01-05", 20, 100), ("2026-02-10", 10, 50)]
+        {
+            db::add_log(
+                &conn,
+                &ActivityLog {
+                    id: None,
+                    media_id,
+                    duration_minutes: minutes,
+                    characters,
+                    date: date.to_string(),
+                    activity_type: "Reading".to_string(),
+                    notes: String::new(),
+                },
+            )
+            .unwrap();
+        }
+
+        let months = get_timeline_buckets(
+            &conn,
+            &bucket_request(TimelineBucketGranularity::Month, None, ""),
+        )
+        .unwrap()
+        .value;
+        assert_eq!(months.buckets.len(), 2);
+        assert_eq!(months.buckets[0].key, "2026-02");
+        assert_eq!(months.buckets[0].finished_count, 1);
+        assert_eq!(months.buckets[0].logged_minutes, 10);
+        assert_eq!(months.buckets[0].logged_characters, 50);
+        assert_eq!(months.buckets[1].key, "2026-01");
+        assert_eq!(months.buckets[1].started_count, 1);
+        assert_eq!(months.buckets[1].logged_minutes, 20);
+        assert_eq!(months.buckets[1].logged_characters, 100);
+
+        let years = get_timeline_buckets(
+            &conn,
+            &bucket_request(TimelineBucketGranularity::Year, None, ""),
+        )
+        .unwrap()
+        .value;
+        assert_eq!(years.buckets.len(), 1);
+        let year_bucket = &years.buckets[0];
+        assert_eq!(year_bucket.key, "2026");
+        assert_eq!(year_bucket.started_count, 1);
+        assert_eq!(year_bucket.finished_count, 1);
+        assert_eq!(
+            year_bucket.logged_minutes,
+            months.buckets[0].logged_minutes + months.buckets[1].logged_minutes
+        );
+        assert_eq!(
+            year_bucket.logged_characters,
+            months.buckets[0].logged_characters + months.buckets[1].logged_characters
+        );
+    }
+
+    #[test]
+    fn search_filter_narrows_pips_and_logged_minutes_consistently() {
+        let directory = tempfile::tempdir().unwrap();
+        let conn = db::init_db(directory.path().to_path_buf(), Some("bucket-search")).unwrap();
+        let kept_id = db::add_media_with_id(&conn, &media("Keep Me", "Ongoing")).unwrap();
+        let dropped_id = db::add_media_with_id(&conn, &media("Filtered Out", "Ongoing")).unwrap();
+        for (media_id, date, minutes) in
+            [(kept_id, "2026-01-05", 20), (dropped_id, "2026-01-06", 15)]
+        {
+            db::add_log(
+                &conn,
+                &ActivityLog {
+                    id: None,
+                    media_id,
+                    duration_minutes: minutes,
+                    characters: 0,
+                    date: date.to_string(),
+                    activity_type: "Reading".to_string(),
+                    notes: String::new(),
+                },
+            )
+            .unwrap();
+        }
+
+        let buckets = get_timeline_buckets(
+            &conn,
+            &bucket_request(TimelineBucketGranularity::Month, None, "Keep"),
+        )
+        .unwrap()
+        .value;
+        assert_eq!(buckets.buckets.len(), 1);
+        let bucket = &buckets.buckets[0];
+        assert_eq!(bucket.key, "2026-01");
+        assert_eq!(bucket.started_count, 1);
+        assert_eq!(bucket.logged_minutes, 20);
+    }
+
+    #[test]
+    fn time_only_bucket_appears_without_a_lifecycle_event() {
+        let directory = tempfile::tempdir().unwrap();
+        let conn = db::init_db(directory.path().to_path_buf(), Some("bucket-time-only")).unwrap();
+        let media_id = db::add_media_with_id(&conn, &media("Long Read", "Ongoing")).unwrap();
+        for (date, minutes) in [("2023-12-05", 5), ("2024-03-10", 25)] {
+            db::add_log(
+                &conn,
+                &ActivityLog {
+                    id: None,
+                    media_id,
+                    duration_minutes: minutes,
+                    characters: 0,
+                    date: date.to_string(),
+                    activity_type: "Reading".to_string(),
+                    notes: String::new(),
+                },
+            )
+            .unwrap();
+        }
+
+        let buckets = get_timeline_buckets(
+            &conn,
+            &bucket_request(TimelineBucketGranularity::Month, None, ""),
+        )
+        .unwrap()
+        .value;
+        assert_eq!(buckets.buckets.len(), 2);
+        let march = buckets
+            .buckets
+            .iter()
+            .find(|bucket| bucket.key == "2024-03")
+            .unwrap();
+        assert_eq!(march.started_count, 0);
+        assert_eq!(march.logged_minutes, 25);
+    }
+
+    #[test]
+    fn year_filter_clips_bucket_keys_not_the_media_set() {
+        let directory = tempfile::tempdir().unwrap();
+        let conn = db::init_db(directory.path().to_path_buf(), Some("bucket-year-clip")).unwrap();
+        let media_id = db::add_media_with_id(&conn, &media("Long Read", "Ongoing")).unwrap();
+        for (date, minutes) in [("2023-12-05", 5), ("2024-03-10", 25)] {
+            db::add_log(
+                &conn,
+                &ActivityLog {
+                    id: None,
+                    media_id,
+                    duration_minutes: minutes,
+                    characters: 0,
+                    date: date.to_string(),
+                    activity_type: "Reading".to_string(),
+                    notes: String::new(),
+                },
+            )
+            .unwrap();
+        }
+
+        let buckets = get_timeline_buckets(
+            &conn,
+            &bucket_request(TimelineBucketGranularity::Month, Some(2024), ""),
+        )
+        .unwrap()
+        .value;
+
+        assert_eq!(buckets.buckets.len(), 1);
+        let march = &buckets.buckets[0];
+        assert_eq!(march.key, "2024-03");
+        assert_eq!(march.started_count, 0);
+        assert_eq!(march.logged_minutes, 25);
+    }
+
+    #[test]
+    fn highlights_are_capped_and_report_the_full_distinct_count() {
+        let directory = tempfile::tempdir().unwrap();
+        let conn = db::init_db(directory.path().to_path_buf(), Some("bucket-highlights")).unwrap();
+        let media_count = MAX_YEAR_BUCKET_HIGHLIGHTS + 2;
+        for index in 1..=media_count {
+            let title = format!("Title {index}");
+            let cover = format!("cover-{index}.png");
+            let media_id =
+                db::add_media_with_id(&conn, &media_with_cover(&title, "Ongoing", &cover))
+                    .unwrap();
+            db::add_log(
+                &conn,
+                &ActivityLog {
+                    id: None,
+                    media_id,
+                    duration_minutes: 5,
+                    characters: 0,
+                    date: format!("2026-05-{index:02}"),
+                    activity_type: "Reading".to_string(),
+                    notes: String::new(),
+                },
+            )
+            .unwrap();
+        }
+
+        let buckets = get_timeline_buckets(
+            &conn,
+            &bucket_request(TimelineBucketGranularity::Month, None, ""),
+        )
+        .unwrap()
+        .value;
+        assert_eq!(buckets.buckets.len(), 1);
+        let bucket = &buckets.buckets[0];
+        assert_eq!(bucket.started_count, i64::try_from(media_count).unwrap());
+        assert_eq!(bucket.highlights.len(), MAX_MONTH_BUCKET_HIGHLIGHTS);
+        assert_eq!(
+            bucket.distinct_media_count,
+            i64::try_from(media_count).unwrap()
+        );
+
+        let years = get_timeline_buckets(
+            &conn,
+            &bucket_request(TimelineBucketGranularity::Year, None, ""),
+        )
+        .unwrap()
+        .value;
+        assert_eq!(years.buckets.len(), 1);
+        let year = &years.buckets[0];
+        assert_eq!(year.highlights.len(), MAX_YEAR_BUCKET_HIGHLIGHTS);
+        assert_eq!(
+            year.distinct_media_count,
+            i64::try_from(media_count).unwrap()
+        );
+    }
+
+    fn seed_logged_media(conn: &Connection, title: &str, date: &str, minutes: i64, characters: i64) {
+        let cover = format!("{title}.png");
+        let media_id =
+            db::add_media_with_id(conn, &media_with_cover(title, "Ongoing", &cover)).unwrap();
+        db::add_log(
+            conn,
+            &ActivityLog {
+                id: None,
+                media_id,
+                duration_minutes: minutes,
+                characters,
+                date: date.to_string(),
+                activity_type: "Reading".to_string(),
+                notes: String::new(),
+            },
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn highlights_lead_with_the_most_logged_title_rather_than_the_newest() {
+        let directory = tempfile::tempdir().unwrap();
+        let conn = db::init_db(directory.path().to_path_buf(), Some("bucket-immersion")).unwrap();
+        seed_logged_media(&conn, "Deep", "2026-05-01", 600, 0);
+        seed_logged_media(&conn, "Glance", "2026-05-20", 10, 0);
+
+        let buckets = get_timeline_buckets(
+            &conn,
+            &bucket_request(TimelineBucketGranularity::Month, None, ""),
+        )
+        .unwrap()
+        .value;
+        let titles = buckets.buckets[0]
+            .highlights
+            .iter()
+            .map(|highlight| highlight.media_title.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(titles, vec!["Deep", "Glance"]);
+    }
+
+    #[test]
+    fn highlights_include_a_title_with_logged_time_but_no_event_in_the_bucket() {
+        let directory = tempfile::tempdir().unwrap();
+        let conn =
+            db::init_db(directory.path().to_path_buf(), Some("bucket-logged-only")).unwrap();
+        let media_id =
+            db::add_media_with_id(&conn, &media_with_cover("Serial", "Ongoing", "serial.png"))
+                .unwrap();
+        for (date, minutes) in [("2025-12-05", 60), ("2026-03-10", 120)] {
+            db::add_log(
+                &conn,
+                &ActivityLog {
+                    id: None,
+                    media_id,
+                    duration_minutes: minutes,
+                    characters: 0,
+                    date: date.to_string(),
+                    activity_type: "Reading".to_string(),
+                    notes: String::new(),
+                },
+            )
+            .unwrap();
+        }
+
+        let buckets = get_timeline_buckets(
+            &conn,
+            &bucket_request(TimelineBucketGranularity::Month, None, ""),
+        )
+        .unwrap()
+        .value;
+        let march = buckets
+            .buckets
+            .iter()
+            .find(|bucket| bucket.key == "2026-03")
+            .expect("a bucket exists for the month with logged time");
+        assert_eq!(march.started_count, 0);
+        assert_eq!(march.logged_minutes, 120);
+        assert_eq!(
+            march
+                .highlights
+                .iter()
+                .map(|highlight| highlight.media_title.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Serial"]
+        );
+        assert_eq!(march.distinct_media_count, 1);
+    }
+
+    #[test]
+    fn highlights_rank_a_character_tracked_title_above_a_barely_read_one() {
+        let directory = tempfile::tempdir().unwrap();
+        let conn = db::init_db(directory.path().to_path_buf(), Some("bucket-immersion-mix")).unwrap();
+        seed_logged_media(&conn, "Hours", "2026-05-01", 1000, 0);
+        seed_logged_media(&conn, "Glance", "2026-05-10", 50, 0);
+        seed_logged_media(&conn, "Characters", "2026-05-20", 0, 90_000);
+
+        let buckets = get_timeline_buckets(
+            &conn,
+            &bucket_request(TimelineBucketGranularity::Month, None, ""),
+        )
+        .unwrap()
+        .value;
+        let titles = buckets.buckets[0]
+            .highlights
+            .iter()
+            .map(|highlight| highlight.media_title.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(titles.last(), Some(&"Glance"));
+        assert!(titles.contains(&"Characters"));
+    }
+
+    #[test]
+    fn milestones_roll_into_the_bucket_count() {
+        let directory = tempfile::tempdir().unwrap();
+        let conn = db::init_db(directory.path().to_path_buf(), Some("bucket-milestones")).unwrap();
+        let media_id = db::add_media_with_id(&conn, &media("Milestone Media", "Ongoing")).unwrap();
+        let media_uid = db::get_all_media(&conn)
+            .unwrap()
+            .into_iter()
+            .find(|item| item.id == Some(media_id))
+            .unwrap()
+            .uid;
+        for index in 1..=5 {
+            db::add_milestone(
+                &conn,
+                &Milestone {
+                    id: None,
+                    media_uid: media_uid.clone(),
+                    media_title: String::new(),
+                    name: format!("Checkpoint {index}"),
+                    duration: 10,
+                    characters: 0,
+                    date: Some(format!("2026-06-{index:02}")),
+                },
+            )
+            .unwrap();
+        }
+
+        let buckets = get_timeline_buckets(
+            &conn,
+            &bucket_request(TimelineBucketGranularity::Month, None, ""),
+        )
+        .unwrap()
+        .value;
+        assert_eq!(buckets.buckets.len(), 1);
+        let bucket = &buckets.buckets[0];
+        assert_eq!(bucket.milestone_count, 5);
+    }
+
+    #[test]
+    fn empty_database_returns_empty_buckets() {
+        let directory = tempfile::tempdir().unwrap();
+        let conn = db::init_db(directory.path().to_path_buf(), Some("bucket-empty")).unwrap();
+
+        let buckets = get_timeline_buckets(
+            &conn,
+            &bucket_request(TimelineBucketGranularity::Month, None, ""),
+        )
+        .unwrap()
+        .value;
+
+        assert!(buckets.buckets.is_empty());
+        assert!(buckets.available_years.is_empty());
+        assert!(buckets.ambiguous_titles.is_empty());
+        assert_eq!(buckets.summary.total_minutes, 0);
+        assert_eq!(buckets.summary.completed_titles, 0);
+        assert_eq!(buckets.summary.total_characters, 0);
     }
 }

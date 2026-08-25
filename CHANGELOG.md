@@ -6,6 +6,20 @@ The format is based on Keep a Changelog, with one section per released version.
 
 ## [Unreleased]
 
+### Changed
+ - Reading speed and completion estimates are now computed from a work's own logged sessions (or, for
+   completed works, from the metadata character total) before falling back to your average speed for
+   that content type
+ - Visual Novel sessions logged as "Playing" now count toward reading speed and completion estimates,
+   same as "Reading"
+ - The Reading Report Card on the Profile page now recomputes automatically whenever you open it
+
+### Fixed
+ - Ongoing works with a logged character count no longer ignore it in favor of a stale, less accurate
+   average speed when estimating remaining time and completion
+
+## [0.3.2] - 2026-08-25
+
 ### Added
  - Business cards now show time *and* characters. Added toggle for choice of which metric to calculate percentages by.
  - Added app startup workflow to recover a database with corrupted milestones
@@ -14,6 +28,7 @@ The format is based on Keep a Changelog, with one section per released version.
  - It is now possible to filter the media library with advanced filter rules and tags
  - Media CSV exports now include an option Tracking Status column
  - The dashboard's side panel can now be collapsed into a Quick Log cover rail, reclaiming space for the charts.
+ - The timeline can now zoom out from per-event detail to compact rows, monthly summaries, and yearly summaries, with Ctrl/⌘+scroll and (untested) pinch-to-zoom accelerators.
 
 ### Changed
  - HTTP-based media CSV import now relies on a review_token for session consistency
@@ -23,12 +38,6 @@ The format is based on Keep a Changelog, with one section per released version.
  - Failed inline media edits now revert on screen and display a "Unable to Save Media" warning
  - Concurrent edits via cloud sync now produce a conflict resolution event
  - Monthly stats calendar view shows week separation and better day-of-week text
- - Reading speed and completion estimates are now computed from a work's own logged sessions (or, for
-   completed works, from the metadata character total) before falling back to your average speed for
-   that content type
- - Visual Novel sessions logged as "Playing" now count toward reading speed and completion estimates,
-   same as "Reading"
- - The Reading Report Card on the Profile page now recomputes automatically whenever you open it
 
 ### Fixed
  - Various HTTP API hardening requirements and data validation fixes
@@ -39,8 +48,7 @@ The format is based on Keep a Changelog, with one section per released version.
  - Interrupted backups automatically restore the original data
  - Several stability and security vulnerability fixes
  - The reading time estimate in the media detail view sometimes never appeared
- - Ongoing works with a logged character count no longer ignore it in favor of a stale, less accurate
-   average speed when estimating remaining time and completion
+ - Cover images load much faster in the desktop and Android apps, and no longer stall the interface when many of them load at once
 
 ## [0.3.1] - 2026-07-24
 

@@ -77,7 +77,7 @@ describe('MediaListItem', () => {
     });
 
     it('loads cover images through the shared loader path', async () => {
-        vi.mocked(api.readFileBytes).mockResolvedValue([1, 2, 3]);
+        vi.mocked(api.readFileBytes).mockResolvedValue(new Uint8Array([1, 2, 3]).buffer);
         globalThis.URL.createObjectURL = vi.fn(() => 'blob:list-item');
 
         const component = new MediaListItemTestHarness(
@@ -107,7 +107,7 @@ describe('MediaListItem', () => {
     });
 
     it('replaces the placeholder with the loaded image rather than keeping both in the cover shell', async () => {
-        vi.mocked(api.readFileBytes).mockResolvedValue([1, 2, 3]);
+        vi.mocked(api.readFileBytes).mockResolvedValue(new Uint8Array([1, 2, 3]).buffer);
         globalThis.URL.createObjectURL = vi.fn(() => 'blob:list-item');
 
         const component = new MediaListItemTestHarness(
