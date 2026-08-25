@@ -21,6 +21,27 @@
 
   --accent-text: #ffffff;
 
+  /* Palette Defaults */
+  --bg-dark: #2e232b;
+  --bg-card: #3d2e37;
+  --bg-card-hover: #4f3b47;
+  --text-primary: #fff0f5;
+  --text-secondary: #d8bfd8;
+  --accent-green: #ffb3ba;
+  --accent-green-hover: #ffdfba;
+  --accent-red: #ff9eaa;
+  --accent-blue: #b19cd9;
+  --accent-yellow: #fadadd;
+  --accent-purple: #f5c0c0;
+  --border-color: #554460;
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --chart-1: #f4a6b8;
+  --chart-2: #b8cdda;
+  --chart-3: #e0bbe4;
+  --chart-4: #957DAD;
+  --chart-5: #D291BC;
+
   /* Color Tokens */
   --tint-light: #ffffff;      /* base for translucent light tints and highlights */
   --tint-dark:  #000000;      /* base for translucent dark tints and depth */
