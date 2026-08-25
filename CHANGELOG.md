@@ -7,6 +7,19 @@ The format is based on Keep a Changelog, with one section per released version.
 ## [Unreleased]
 
 ### Added
+ - Added an E-Ink theme: black on white, borders instead of fill-tints, no motion or elevation, tuned for e-ink panels
+
+### Changed
+ - Doughnut and stacked-bar chart segments now have a border separating them, across all themes
+
+### Fixed
+ - The startup error and database recovery screens now show their intended background gradient
+ - The Jiten.moe search dialog title was invisible on the light themes
+ - Selected toggle buttons, filter chips and sort direction options are now readable on themes with a dark accent colour
+
+## [0.3.2] - 2026-08-25
+
+### Added
  - Business cards now show time *and* characters. Added toggle for choice of which metric to calculate percentages by.
  - Added app startup workflow to recover a database with corrupted milestones
  - Alternative variants of the same media now show in the detailed media view for those entries and can be easily accessed with one click
@@ -14,7 +27,7 @@ The format is based on Keep a Changelog, with one section per released version.
  - It is now possible to filter the media library with advanced filter rules and tags
  - Media CSV exports now include an option Tracking Status column
  - The dashboard's side panel can now be collapsed into a Quick Log cover rail, reclaiming space for the charts.
- - Added an E-Ink theme: black on white, borders instead of fill-tints, no motion or elevation, tuned for e-ink panels
+ - The timeline can now zoom out from per-event detail to compact rows, monthly summaries, and yearly summaries, with Ctrl/⌘+scroll and (untested) pinch-to-zoom accelerators.
 
 ### Changed
  - HTTP-based media CSV import now relies on a review_token for session consistency
@@ -24,7 +37,6 @@ The format is based on Keep a Changelog, with one section per released version.
  - Failed inline media edits now revert on screen and display a "Unable to Save Media" warning
  - Concurrent edits via cloud sync now produce a conflict resolution event
  - Monthly stats calendar view shows week separation and better day-of-week text
- - Doughnut and stacked-bar chart segments now have a border separating them, across all themes
 
 ### Fixed
  - Various HTTP API hardening requirements and data validation fixes
@@ -35,9 +47,7 @@ The format is based on Keep a Changelog, with one section per released version.
  - Interrupted backups automatically restore the original data
  - Several stability and security vulnerability fixes
  - The reading time estimate in the media detail view sometimes never appeared
- - The startup error and database recovery screens now show their intended background gradient
- - The Jiten.moe search dialog title was invisible on the light themes
- - Selected toggle buttons, filter chips and sort direction options are now readable on themes with a dark accent colour
+ - Cover images load much faster in the desktop and Android apps, and no longer stall the interface when many of them load at once
 
 ## [0.3.1] - 2026-07-24
 

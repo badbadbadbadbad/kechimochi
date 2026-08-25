@@ -11,5 +11,6 @@ export {
     upsertExtraDataValue,
 } from './extra_data';
 export { getProfileInitials, profilePictureToDataUrl } from './profile/profile_picture';
-export { formatHhMm, formatLoggedDuration, formatStatsDuration, toTimeParts } from './time';
+export { formatCount, formatOptionalCount, formatOptionalNumber } from './count_formatting';
+export { formatHhMm, formatLoggedDuration, formatOptionalStatsDuration, formatStatsDuration, toTimeParts } from './time';
 export type { TimeParts } from './time';

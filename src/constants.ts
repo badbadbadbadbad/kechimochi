@@ -49,6 +49,7 @@ export const SETTING_KEYS = {
     UPDATES_AUTO_CHECK_ENABLED: 'updates_auto_check_enabled',
     UPDATES_LAST_SEEN_RELEASE_VERSION: 'updates_last_seen_release_version',
     UPDATES_E2E_RELEASE_VERSION: 'updates_e2e_release_version',
+    TIMELINE_ZOOM_LEVEL: 'timeline_zoom_level',
 } as const;
 
 export const DEFAULTS = {

@@ -1,7 +1,8 @@
 import { Component } from '../component';
 import { ActivitySummary, DashboardMedia, DashboardRangeResponse, DashboardWeekdayDistribution, DashboardWeekdayStats, Media } from '../api';
 import { escapeHTML, html, rawHtml } from '../html';
-import { formatStatsDuration } from '../time';
+import { formatCount, formatOptionalCount } from '../count_formatting';
+import { formatOptionalStatsDuration, formatStatsDuration } from '../time';
 import { getActivityRange, getLocalISODate, normalizeWeekStartDay, type ActivityPeriod, type ActivityRange } from './activity_ranges';
 import { MediaCoverLoader } from '../media/cover_loader';
 import { Logger } from '../logger';
@@ -495,7 +496,7 @@ export class ActivityTotals extends Component<ActivityTotalsState> {
                 title: 'Most Time Spent',
                 label: mostTime.media.title,
                 value: formatStatsDuration(mostTime.totals.minutes, true),
-                detail: this.formatOptionalCount(mostTime.totals.characters, 'char'),
+                detail: formatOptionalCount(mostTime.totals.characters, 'char'),
                 media: mostTime.media,
                 tone: 'time' as const,
             } : undefined,
@@ -503,8 +504,8 @@ export class ActivityTotals extends Component<ActivityTotalsState> {
                 key: 'most-chars',
                 title: 'Most Characters Read',
                 label: mostChars.media.title,
-                value: this.formatCount(mostChars.totals.characters, 'char'),
-                detail: this.formatOptionalDuration(mostChars.totals.minutes),
+                value: formatCount(mostChars.totals.characters, 'char'),
+                detail: formatOptionalStatsDuration(mostChars.totals.minutes),
                 media: mostChars.media,
                 tone: 'chars' as const,
             } : undefined,
@@ -512,8 +513,8 @@ export class ActivityTotals extends Component<ActivityTotalsState> {
                 key: 'most-sessions',
                 title: 'Most Sessions',
                 label: mostSessions.media.title,
-                value: this.formatCount(mostSessions.totals.sessions, 'session'),
-                detail: this.formatOptionalDuration(mostSessions.totals.minutes),
+                value: formatCount(mostSessions.totals.sessions, 'session'),
+                detail: formatOptionalStatsDuration(mostSessions.totals.minutes),
                 media: mostSessions.media,
                 tone: 'sessions' as const,
             } : undefined,
@@ -522,15 +523,15 @@ export class ActivityTotals extends Component<ActivityTotalsState> {
                 title: 'Biggest Day',
                 label: this.formatFullDate(biggestDay[0]),
                 value: formatStatsDuration(biggestDay[1].minutes, true),
-                detail: this.formatOptionalCount(biggestDay[1].characters, 'char'),
+                detail: formatOptionalCount(biggestDay[1].characters, 'char'),
                 tone: 'day' as const,
             } : undefined,
             biggestStreak && biggestStreak.streak > 0 ? {
                 key: 'biggest-streak',
                 title: 'Biggest Streak',
                 label: biggestStreak.media.title,
-                value: this.formatCount(biggestStreak.streak, 'day'),
-                detail: this.formatOptionalCount(biggestStreak.totals.sessions, 'session'),
+                value: formatCount(biggestStreak.streak, 'day'),
+                detail: formatOptionalCount(biggestStreak.totals.sessions, 'session'),
                 media: biggestStreak.media,
                 tone: 'streak' as const,
             } : undefined,
@@ -565,7 +566,7 @@ export class ActivityTotals extends Component<ActivityTotalsState> {
         return {
             key: 'most-time', title: 'Most Time Spent', label: media.title,
             value: formatStatsDuration(highlight.total_minutes, true),
-            detail: this.formatOptionalCount(highlight.total_characters, 'char'),
+            detail: formatOptionalCount(highlight.total_characters, 'char'),
             media, tone: 'time',
         };
     }
@@ -577,8 +578,8 @@ export class ActivityTotals extends Component<ActivityTotalsState> {
         if (!media || highlight.total_characters <= 0) return null;
         return {
             key: 'most-chars', title: 'Most Characters Read', label: media.title,
-            value: this.formatCount(highlight.total_characters, 'char'),
-            detail: this.formatOptionalDuration(highlight.total_minutes),
+            value: formatCount(highlight.total_characters, 'char'),
+            detail: formatOptionalStatsDuration(highlight.total_minutes),
             media, tone: 'chars',
         };
     }
@@ -590,8 +591,8 @@ export class ActivityTotals extends Component<ActivityTotalsState> {
         if (!media || highlight.sessions <= 0) return null;
         return {
             key: 'most-sessions', title: 'Most Sessions', label: media.title,
-            value: this.formatCount(highlight.sessions, 'session'),
-            detail: this.formatOptionalDuration(highlight.total_minutes),
+            value: formatCount(highlight.sessions, 'session'),
+            detail: formatOptionalStatsDuration(highlight.total_minutes),
             media, tone: 'sessions',
         };
     }
@@ -603,7 +604,7 @@ export class ActivityTotals extends Component<ActivityTotalsState> {
         return {
             key: 'biggest-day', title: 'Biggest Day', label: this.formatFullDate(highlight.date),
             value: formatStatsDuration(highlight.total_minutes, true),
-            detail: this.formatOptionalCount(highlight.total_characters, 'char'),
+            detail: formatOptionalCount(highlight.total_characters, 'char'),
             tone: 'day',
         };
     }
@@ -615,8 +616,8 @@ export class ActivityTotals extends Component<ActivityTotalsState> {
         if (!media || highlight.streak_days <= 0) return null;
         return {
             key: 'biggest-streak', title: 'Biggest Streak', label: media.title,
-            value: this.formatCount(highlight.streak_days, 'day'),
-            detail: this.formatOptionalCount(highlight.sessions, 'session'),
+            value: formatCount(highlight.streak_days, 'day'),
+            detail: formatOptionalCount(highlight.sessions, 'session'),
             media, tone: 'streak',
         };
     }
@@ -768,19 +769,6 @@ export class ActivityTotals extends Component<ActivityTotalsState> {
 
     private formatHours(minutes: number): string {
         return formatStatsDuration(minutes, true);
-    }
-
-    private formatCount(value: number, singular: string): string {
-        const label = value === 1 ? singular : `${singular}s`;
-        return `${value.toLocaleString()} ${label}`;
-    }
-
-    private formatOptionalCount(value: number, singular: string): string {
-        return value > 0 ? this.formatCount(value, singular) : '';
-    }
-
-    private formatOptionalDuration(minutes: number): string {
-        return minutes > 0 ? formatStatsDuration(minutes, true) : '';
     }
 
     private getTitle(period: ActivityPeriod): string {
