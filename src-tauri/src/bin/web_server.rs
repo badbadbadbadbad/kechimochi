@@ -1394,15 +1394,19 @@ mod tests {
     use axum::extract::FromRequest;
     use tower::ServiceExt;
 
+    static DATA_DIR_SEQUENCE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
     fn unique_data_dir() -> std::path::PathBuf {
         let ts = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
+        let sequence = DATA_DIR_SEQUENCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         std::env::temp_dir().join(format!(
-            "kechimochi_web_server_test_{}_{}",
+            "kechimochi_web_server_test_{}_{}_{}",
             std::process::id(),
-            ts
+            ts,
+            sequence
         ))
     }
 
