@@ -36,8 +36,8 @@ use models::{
     ActivityLog, ActivitySummary, DailyHeatmap, DashboardHeatmapYearRequest,
     DashboardHeatmapYearResponse, DashboardRangeRequest, DashboardRangeResponse,
     DashboardRecentLogsRequest, DashboardRecentPage, DashboardSnapshot, DashboardSnapshotRequest,
-    LibrarySnapshot, LibrarySnapshotRequest, Media, Milestone, ProfilePicture, TimelineEvent,
-    TimelinePage, TimelinePageRequest,
+    LibrarySnapshot, LibrarySnapshotRequest, Media, Milestone, ProfilePicture, TimelineBucketPage,
+    TimelineBucketRequest, TimelineEvent, TimelinePage, TimelinePageRequest,
 };
 
 // Database state
@@ -905,6 +905,19 @@ async fn get_timeline_page(
 }
 
 #[tauri::command]
+async fn get_timeline_buckets(
+    state: State<'_, DbState>,
+    request: TimelineBucketRequest,
+) -> Result<TimelineBucketPage, String> {
+    timeline_data::validate_bucket_request(&request)?;
+    let conn = state.conn.clone();
+    run_measured_read(conn, "timeline_buckets", move |conn| {
+        timeline_data::get_timeline_buckets(conn, &request)
+    })
+    .await
+}
+
+#[tauri::command]
 fn get_milestones(state: State<DbState>, media_uid: String) -> Result<Vec<Milestone>, String> {
     with_conn(&state, |conn| {
         db::get_milestones_for_media_uid(conn, &media_uid).map_err(|e| e.to_string())
@@ -991,8 +1004,11 @@ fn upload_cover_image(
 }
 
 #[tauri::command]
-fn read_file_bytes(app_handle: tauri::AppHandle, path: String) -> Result<Vec<u8>, String> {
-    app_file_io::read_input_bytes(&app_handle, &path)
+fn read_file_bytes(
+    app_handle: tauri::AppHandle,
+    path: String,
+) -> Result<tauri::ipc::Response, String> {
+    app_file_io::read_input_bytes(&app_handle, &path).map(tauri::ipc::Response::new)
 }
 
 #[tauri::command]
@@ -1878,6 +1894,7 @@ pub fn run() {
             get_logs_for_media,
             get_timeline_events,
             get_timeline_page,
+            get_timeline_buckets,
             get_milestones,
             add_milestone,
             delete_milestone,
