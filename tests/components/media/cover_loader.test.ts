@@ -32,7 +32,7 @@ describe('MediaCoverLoader', () => {
     });
 
     it('loads and caches desktop covers', async () => {
-        vi.mocked(api.readFileBytes).mockResolvedValue([1, 2, 3]);
+        vi.mocked(api.readFileBytes).mockResolvedValue(new Uint8Array([1, 2, 3]).buffer);
         globalThis.URL.createObjectURL = vi.fn(() => 'blob:desktop-cover');
 
         await expect(MediaCoverLoader.load('/app/covers/cover.png')).resolves.toBe('blob:desktop-cover');
@@ -42,7 +42,7 @@ describe('MediaCoverLoader', () => {
     });
 
     it('can load desktop covers without writing through to the shared cache', async () => {
-        vi.mocked(api.readFileBytes).mockResolvedValue([1, 2, 3]);
+        vi.mocked(api.readFileBytes).mockResolvedValue(new Uint8Array([1, 2, 3]).buffer);
         globalThis.URL.createObjectURL = vi.fn()
             .mockReturnValueOnce('blob:detail-cover-1')
             .mockReturnValueOnce('blob:detail-cover-2');
@@ -55,7 +55,7 @@ describe('MediaCoverLoader', () => {
     });
 
     it('revokes cached object URLs when clearing the shared cache', async () => {
-        vi.mocked(api.readFileBytes).mockResolvedValue([1, 2, 3]);
+        vi.mocked(api.readFileBytes).mockResolvedValue(new Uint8Array([1, 2, 3]).buffer);
         globalThis.URL.createObjectURL = vi.fn(() => 'blob:desktop-cover');
         globalThis.URL.revokeObjectURL = vi.fn();
 
@@ -111,7 +111,7 @@ describe('MediaCoverLoader', () => {
     });
 
     it('drops and revokes an old-generation result after data isolation is reset', async () => {
-        let resolveBytes!: (value: number[]) => void;
+        let resolveBytes!: (value: ArrayBuffer) => void;
         vi.mocked(api.readFileBytes).mockImplementation(() => new Promise(resolve => {
             resolveBytes = resolve;
         }));
@@ -120,7 +120,7 @@ describe('MediaCoverLoader', () => {
 
         const pending = MediaCoverLoader.load('/old/data/cover.png');
         MediaCoverLoader.clear();
-        resolveBytes([1, 2, 3]);
+        resolveBytes(new Uint8Array([1, 2, 3]).buffer);
 
         await expect(pending).resolves.toBeNull();
         expect(globalThis.URL.revokeObjectURL).toHaveBeenCalledWith('blob:old-generation');

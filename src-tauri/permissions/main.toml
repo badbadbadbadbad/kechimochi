@@ -18,6 +18,7 @@ commands.allow = [
     "get_library_snapshot",
     "get_timeline_events",
     "get_timeline_page",
+    "get_timeline_buckets",
     "import_csv",
     "analyze_activity_csv",
     "apply_activity_import",

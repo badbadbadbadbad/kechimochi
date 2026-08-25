@@ -41,6 +41,18 @@ describe('formatting.ts', () => {
         });
     });
 
+    describe('formatOptionalStatsDuration', () => {
+        it('should format a positive duration and skip zero minutes', () => {
+            expect(formatting.formatOptionalStatsDuration(45)).toBe('45m');
+            expect(formatting.formatOptionalStatsDuration(120)).toBe('2h');
+            expect(formatting.formatOptionalStatsDuration(125)).toBe('2h 5m');
+        });
+
+        it('should render nothing at zero', () => {
+            expect(formatting.formatOptionalStatsDuration(0)).toBe('');
+        });
+    });
+
     describe('formatCompactDuration', () => {
         it('should use the largest units available and omit empty ones', () => {
             expect(formatting.formatCompactDuration(0)).toBe('0m');

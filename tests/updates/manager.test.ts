@@ -48,6 +48,7 @@ function createServices(): TestServices {
         getLogsForMedia: vi.fn(),
         getTimelineEvents: vi.fn(),
         getTimelinePage: vi.fn(),
+        getTimelineBuckets: vi.fn(),
         initializeUserDb: vi.fn(),
         clearActivities: vi.fn(),
         wipeEverything: vi.fn(),

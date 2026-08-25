@@ -264,6 +264,7 @@ fn build_app_router(state: Shared) -> Router {
         .route("/api/library/snapshot", post(get_library_snapshot_handler))
         .route("/api/timeline", get(get_timeline_events_handler))
         .route("/api/timeline/page", post(get_timeline_page_handler))
+        .route("/api/timeline/buckets", post(get_timeline_buckets_handler))
         // Milestones
         .route("/api/milestones", post(add_milestone_handler))
         .route(
@@ -750,6 +751,17 @@ async fn get_timeline_page_handler(
     let conn = s.conn.lock().await;
     let measured = timeline_data::get_timeline_page(&conn, &request).ae()?;
     read_performance::log_measured_response("timeline_page", &measured);
+    Ok(Json(measured.value))
+}
+
+async fn get_timeline_buckets_handler(
+    State(s): State<Shared>,
+    Json(request): Json<models::TimelineBucketRequest>,
+) -> HandlerResult<Json<models::TimelineBucketPage>> {
+    timeline_data::validate_bucket_request(&request).map_err(AppError::BadRequest)?;
+    let conn = s.conn.lock().await;
+    let measured = timeline_data::get_timeline_buckets(&conn, &request).ae()?;
+    read_performance::log_measured_response("timeline_buckets", &measured);
     Ok(Json(measured.value))
 }
 
@@ -1910,6 +1922,62 @@ mod tests {
         assert_eq!(page.total_count, 2);
         assert_eq!(page.events.len(), 1);
         assert!(page.has_more);
+
+        let _ = std::fs::remove_dir_all(state_dir);
+    }
+
+    #[tokio::test]
+    async fn test_get_timeline_buckets_handler_returns_aggregated_buckets() {
+        let state = setup_state();
+        let state_dir = state.data_dir.clone();
+
+        let media_id = add_media(
+            State(state.clone()),
+            Json(models::HttpMedia::from(models::Media {
+                tracking_status: "Complete".to_string(),
+                content_type: "Novel".to_string(),
+                ..sample_media("Timeline Bucket Handler")
+            })),
+        )
+        .await
+        .unwrap()
+        .0;
+
+        {
+            let conn = state.conn.lock().await;
+            db::add_log(
+                &conn,
+                &models::ActivityLog {
+                    id: None,
+                    media_id,
+                    duration_minutes: 45,
+                    characters: 1500,
+                    date: "2024-03-01".to_string(),
+                    activity_type: "Reading".to_string(),
+                    notes: String::new(),
+                },
+            )
+            .unwrap();
+        }
+
+        let page = get_timeline_buckets_handler(
+            State(state.clone()),
+            Json(models::TimelineBucketRequest {
+                request_id: 91,
+                granularity: models::TimelineBucketGranularity::Month,
+                year: None,
+                search_query: "Timeline Bucket Handler".to_string(),
+            }),
+        )
+        .await
+        .unwrap()
+        .0;
+
+        assert_eq!(page.request_id, 91);
+        assert_eq!(page.buckets.len(), 1);
+        assert_eq!(page.buckets[0].key, "2024-03");
+        assert_eq!(page.buckets[0].finished_count, 1);
+        assert_eq!(page.buckets[0].logged_minutes, 45);
 
         let _ = std::fs::remove_dir_all(state_dir);
     }
