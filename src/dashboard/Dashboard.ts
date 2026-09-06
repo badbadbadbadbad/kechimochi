@@ -70,7 +70,7 @@ export class Dashboard extends Component<DashboardState> {
     private activeRecentRequest = 0;
     private recentPageLoading = false;
     private sidePanelCollapsed = false;
-    private pendingSettingWriteCounts = new Map<string, number>();
+    private readonly pendingSettingWriteCounts = new Map<string, number>();
 
     private readonly containers: {
         leftColumn?: HTMLElement;
