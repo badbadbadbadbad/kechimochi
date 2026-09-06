@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, with one section per released version.
 
 ## [Unreleased]
 
+### Added
+ - The Activity Visualization and Activity Breakdown cards now show a message instead of an empty chart when the selected period has no data.
+
+### Changed
+ - The dashboard's chart time period and metric selections are now remembered across reloads, alongside the existing chart type and grouping.
+ - Clicking a heatmap day now jumps to the containing period without resetting the currently selected time range back to Week.
+
 ## [0.3.2] - 2026-08-25
 
 ### Added
