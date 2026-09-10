@@ -41,6 +41,7 @@ describe('CUJ: Dashboard Analytics Controls', () => {
 
   it('updates real chart datasets and persists chart and grouping preferences', async () => {
     await setSelect('#select-time-range', { value: '30' });
+    await getActivityChartRangeMetadata();
     const initial = await getChartSnapshot();
     expect(initial.chartType).toBe('bar');
     expect(initial.groupBy).toBe('activity_type');
