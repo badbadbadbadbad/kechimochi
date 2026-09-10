@@ -93,7 +93,7 @@ export class ActivityCharts extends Component<ActivityChartsState> {
                     <h3 class="dashboard-module-title" style="text-align: center; margin-bottom: 1rem;">Activity Breakdown</h3>
                     <div class="chart-container-wrapper" style="flex: 1; min-height: 0;">
                         <canvas id="pieChart"></canvas>
-                        <div class="chart-empty-message"></div>
+                        <div id="pie-chart-empty-message" class="chart-empty-message"></div>
                     </div>
                 </div>
                 <div class="card" style="display: flex; flex-direction: column; min-width: 0;">
@@ -161,7 +161,7 @@ export class ActivityCharts extends Component<ActivityChartsState> {
                     </div>
                     <div class="chart-container-wrapper" style="flex: 1; min-height: 0;">
                         <canvas id="barChart"></canvas>
-                        <div class="chart-empty-message"></div>
+                        <div id="bar-chart-empty-message" class="chart-empty-message"></div>
                     </div>
                 </div>
             </div>
@@ -250,7 +250,10 @@ export class ActivityCharts extends Component<ActivityChartsState> {
         layout.querySelectorAll<HTMLElement>('.chart-empty-message').forEach(message => {
             message.classList.remove('is-visible');
         });
-        delete layout.querySelector<HTMLCanvasElement>('#pieChart')?.dataset.dashboardRequestId;
+        const pieCanvas = layout.querySelector<HTMLCanvasElement>('#pieChart');
+        delete pieCanvas?.dataset.dashboardRequestId;
+        delete pieCanvas?.dataset.chartEmpty;
+        delete layout.querySelector<HTMLCanvasElement>('#barChart')?.dataset.chartEmpty;
         this.syncControlState(layout);
     }
 
@@ -284,10 +287,6 @@ export class ActivityCharts extends Component<ActivityChartsState> {
         layout.dataset.timeRangeDays = String(this.state.timeRangeDays);
         layout.dataset.timeRangeOffset = String(this.state.timeRangeOffset);
 
-        const isEmpty = this.isRangeEmptyForMetric(rangeLogs, timeRange);
-        layout.dataset.chartEmpty = isEmpty ? 'true' : 'false';
-        this.syncEmptyStateMessages(layout, isEmpty, timeRange);
-
         // Publish the current aggregate data independently of Chart.js. Tests
         // and other DOM consumers that inspect the data should not have to wait
         // for the lazy chart module or the sibling activity chart to finish
@@ -301,7 +300,16 @@ export class ActivityCharts extends Component<ActivityChartsState> {
             pieCanvas.dataset.dashboardRequestId = snapshotRequestId.toString();
         }
 
-        const datasets: BarChartDataset[] = isEmpty ? [] : measureSynchronous(
+        // The pie sums every point in the range while the bar can only draw the
+        // ones that fall in a bucket, so the two can disagree.
+        const pieChartEmpty = this.isPieChartEmpty(pieData);
+        const barChartEmpty = this.isBarChartEmpty(rangeLogs, timeRange);
+        pieCanvas.dataset.chartEmpty = pieChartEmpty ? 'true' : 'false';
+        barCanvas.dataset.chartEmpty = barChartEmpty ? 'true' : 'false';
+        layout.dataset.chartEmpty = pieChartEmpty && barChartEmpty ? 'true' : 'false';
+        this.syncEmptyStateMessages(layout, pieChartEmpty, barChartEmpty, timeRange);
+
+        const datasets: BarChartDataset[] = barChartEmpty ? [] : measureSynchronous(
             'aggregation',
             'dashboard_bar_data',
             () => this.prepareBarChartDatasets(timeRange, colors),
@@ -315,7 +323,7 @@ export class ActivityCharts extends Component<ActivityChartsState> {
             datasets.map(dataset => dataset.data.reduce((sum, value) => sum + value, 0)),
         );
 
-        if (isEmpty) {
+        if (pieChartEmpty && barChartEmpty) {
             this.destroyChartInstances();
             if (snapshotRequestId !== undefined) {
                 layout.dataset.dashboardRequestId = snapshotRequestId.toString();
@@ -329,14 +337,18 @@ export class ActivityCharts extends Component<ActivityChartsState> {
         if (generation !== this.renderGeneration || !this.container.contains(layout)) return;
 
         this.destroyChartInstances();
-        this.createPieChart(Chart, pieCanvas, colors, pieData);
-        this.createBarChart(Chart, barCanvas, timeRange, datasets);
+        if (!pieChartEmpty) this.createPieChart(Chart, pieCanvas, colors, pieData);
+        if (!barChartEmpty) this.createBarChart(Chart, barCanvas, timeRange, datasets);
         if (snapshotRequestId !== undefined) {
             layout.dataset.dashboardRequestId = snapshotRequestId.toString();
         }
     }
 
-    private isRangeEmptyForMetric(logs: ActivitySummary[], timeRange: ActivityRange): boolean {
+    private isPieChartEmpty(pieData: PieChartData): boolean {
+        return pieData.values.every(value => value === 0);
+    }
+
+    private isBarChartEmpty(logs: ActivitySummary[], timeRange: ActivityRange): boolean {
         const { validStart, validEnd } = timeRange;
         return !logs.some(log => {
             if (log.date < validStart || log.date > validEnd) return false;
@@ -345,17 +357,27 @@ export class ActivityCharts extends Component<ActivityChartsState> {
         });
     }
 
-    private syncEmptyStateMessages(layout: HTMLElement, isEmpty: boolean, timeRange: ActivityRange): void {
-        const messages = layout.querySelectorAll<HTMLElement>('.chart-empty-message');
-        if (isEmpty) {
-            const today = getLocalISODate(new Date());
-            const todayInRange = today >= timeRange.validStart && today <= timeRange.validEnd;
-            const markup = todayInRange
-                ? 'No data in this period. <span class="chart-empty-prompt">Go immerse!</span>'
-                : 'No data in this period.';
-            messages.forEach(message => { message.innerHTML = markup; });
+    private syncEmptyStateMessages(
+        layout: HTMLElement,
+        pieChartEmpty: boolean,
+        barChartEmpty: boolean,
+        timeRange: ActivityRange,
+    ): void {
+        const today = getLocalISODate(new Date());
+        const todayInRange = today >= timeRange.validStart && today <= timeRange.validEnd;
+        const markup = todayInRange
+            ? 'No data in this period. <span class="chart-empty-prompt">Go immerse!</span>'
+            : 'No data in this period.';
+        const targets: ReadonlyArray<{ id: string; isEmpty: boolean }> = [
+            { id: 'pie-chart-empty-message', isEmpty: pieChartEmpty },
+            { id: 'bar-chart-empty-message', isEmpty: barChartEmpty },
+        ];
+        for (const { id, isEmpty } of targets) {
+            const message = layout.querySelector<HTMLElement>(`#${id}`);
+            if (!message) continue;
+            if (isEmpty) message.innerHTML = markup;
+            message.classList.toggle('is-visible', isEmpty);
         }
-        messages.forEach(message => message.classList.toggle('is-visible', isEmpty));
     }
 
     private getChartColors(): string[] {

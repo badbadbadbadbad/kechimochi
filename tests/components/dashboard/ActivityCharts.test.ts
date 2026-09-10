@@ -460,6 +460,44 @@ describe('ActivityCharts', () => {
         expect(Chart).not.toHaveBeenCalled();
     });
 
+    it('marks only the bar chart empty when the range holds unbucketed totals', async () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date('2026-06-10T12:00:00'));
+
+        const component = new ActivityCharts(container, {
+            rangeData: {
+                request_id: 1,
+                start_date: '2026-06-08',
+                end_date: '2026-06-14',
+                bucket: 'day',
+                group_by: 'activity_type',
+                series: [
+                    { bucket: '2026-06-08', group_key: 'activity:Reading', group_label: 'Reading', total_minutes: 30, total_characters: 1000 },
+                ],
+                bucket_totals: [],
+                category_totals: [],
+                highlights: [],
+            },
+            timeRangeDays: 7,
+            timeRangeOffset: 0,
+            groupByMode: 'activity_type',
+            chartType: 'bar',
+            metric: 'minutes',
+        }, onParamChange);
+
+        component.render();
+        await vi.waitFor(() => expect(Chart).toHaveBeenCalledTimes(1));
+
+        const layout = container.querySelector<HTMLElement>('#activity-charts-grid');
+        expect(container.querySelector<HTMLCanvasElement>('#pieChart')?.dataset.chartEmpty).toBe('false');
+        expect(container.querySelector<HTMLCanvasElement>('#barChart')?.dataset.chartEmpty).toBe('true');
+        expect(layout?.dataset.chartEmpty).toBe('false');
+        expect(container.querySelector('#pie-chart-empty-message')?.classList.contains('is-visible')).toBe(false);
+        expect(container.querySelector('#bar-chart-empty-message')?.classList.contains('is-visible')).toBe(true);
+        expect(Chart).toHaveBeenCalledTimes(1);
+        expect(captureChartConfiguration(0).type).toBe('doughnut');
+    });
+
     it('should show the encouraging call to action when today falls in the empty period', () => {
         vi.useFakeTimers();
         vi.setSystemTime(new Date('2026-06-10T12:00:00'));
