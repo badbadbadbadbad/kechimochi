@@ -83,6 +83,8 @@ import {
     setThemeOverrideValue,
     applyTheme,
 } from "../theme.ts";
+import { normalizeWeekStartDay as normalizeWeekStartDayValue } from '../calendar';
+import { effectiveEnd } from '../time';
 
 const THEME_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
     { value: 'pastel-pink', label: 'Pastel Pink (Default)' },
@@ -771,7 +773,7 @@ export class ProfileView extends Component<ProfileState> {
     }
 
     private normalizeWeekStartDay(value: string | null): string {
-        return value && WEEK_START_OPTIONS.some(option => option.value === value) ? value : '1';
+        return String(normalizeWeekStartDayValue(value));
     }
 
     private renderLibraryOrderingCard() {
@@ -2427,11 +2429,11 @@ export class ProfileView extends Component<ProfileState> {
         await customAlert('Cloud Sync Error', `Failed to enable sync: ${message}`);
     }
 
-    private async calculateReport() {
-        const now = new Date();
-        const cutoffDate = new Date();
-        cutoffDate.setFullYear(now.getFullYear() - 1);
+    private async calculateReport(today: Date = new Date()) {
+        const cutoffDate = new Date(today);
+        cutoffDate.setFullYear(today.getFullYear() - 1);
         const cutoffStr = cutoffDate.toISOString().split('T')[0];
+        const todayStr = today.toISOString().split('T')[0];
 
         const mediaList = await getAllMedia();
         const stats: Record<string, { totalSpeed: number, count: number }> = {
@@ -2449,7 +2451,8 @@ export class ProfileView extends Component<ProfileState> {
             if (charCount === null) continue;
 
             const logs = await getLogsForMedia(media.id!);
-            if (logs.length === 0 || logs[0].date < cutoffStr) continue;
+            const hasSessionInWindow = logs.some(log => log.date >= cutoffStr && effectiveEnd(log) <= todayStr);
+            if (!hasSessionInWindow) continue;
 
             const totalMinutes = logs.reduce((acc, log) => acc + log.duration_minutes, 0);
             if (totalMinutes > 0) {

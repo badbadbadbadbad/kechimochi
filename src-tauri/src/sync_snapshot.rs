@@ -9,6 +9,7 @@ use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::db;
+use crate::db::DatePrecision;
 use crate::models::{ActivityLog, Media, Milestone, ProfilePicture};
 
 pub const SYNC_PROTOCOL_VERSION: i64 = 1;
@@ -99,6 +100,8 @@ pub struct SnapshotActivity {
     #[serde(default)]
     pub uid: String,
     pub date: String,
+    #[serde(default)]
+    pub date_precision: DatePrecision,
     pub activity_type: String,
     pub duration_minutes: i64,
     pub characters: i64,
@@ -248,6 +251,7 @@ where
             entry.activities.push(SnapshotActivity {
                 uid: log.uid,
                 date: log.date,
+                date_precision: log.date_precision,
                 activity_type: log.activity_type,
                 duration_minutes: log.duration_minutes,
                 characters: log.characters,
@@ -654,6 +658,7 @@ fn apply_snapshot_inner(
                     duration_minutes: activity.duration_minutes,
                     characters: activity.characters,
                     date: activity.date.clone(),
+                    date_precision: activity.date_precision,
                     activity_type: activity.activity_type.clone(),
                     notes: activity.notes.clone(),
                 },
@@ -1014,6 +1019,7 @@ mod tests {
                 duration_minutes: 45,
                 characters: 200,
                 date: "2026-04-02".to_string(),
+                date_precision: DatePrecision::Day,
                 activity_type: "Reading".to_string(),
                 notes: String::new(),
             },
@@ -1027,6 +1033,7 @@ mod tests {
                 duration_minutes: 30,
                 characters: 100,
                 date: "2026-04-01".to_string(),
+                date_precision: DatePrecision::Day,
                 activity_type: "Reading".to_string(),
                 notes: String::new(),
             },
@@ -1152,6 +1159,7 @@ mod tests {
                 duration_minutes: 60,
                 characters: 0,
                 date: "2026-04-02".to_string(),
+                date_precision: DatePrecision::Day,
                 activity_type: "Reading".to_string(),
                 notes: String::new(),
             },
@@ -1335,6 +1343,7 @@ mod tests {
                 duration_minutes: 20,
                 characters: 0,
                 date: "2026-04-01".to_string(),
+                date_precision: DatePrecision::Day,
                 activity_type: "Reading".to_string(),
                 notes: String::new(),
             },
@@ -1395,6 +1404,7 @@ mod tests {
                 duration_minutes: 40,
                 characters: 500,
                 date: "2026-05-01".to_string(),
+                date_precision: DatePrecision::Day,
                 activity_type: "Reading".to_string(),
                 notes: "My sync note".to_string(),
             },
@@ -1447,6 +1457,7 @@ mod tests {
                     duration_minutes: 40,
                     characters: 500,
                     date: "2026-05-01".to_string(),
+                    date_precision: DatePrecision::Day,
                     activity_type: "Reading".to_string(),
                     notes: notes.to_string(),
                 },

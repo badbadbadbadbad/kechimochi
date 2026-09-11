@@ -34,7 +34,7 @@ import {
     renameExtraDataKey,
     upsertExtraDataValue
 } from '../extra_data';
-import {formatHhMm} from '../time';
+import {compareLogAnchorOrder, compareLogRecency, formatHhMm, formatLogDate} from '../time';
 import {
     ACTIVITY_TYPES,
     CONTENT_TYPE_TO_ACTIVITY_TYPE,
@@ -836,6 +836,18 @@ export class MediaDetail extends Component<MediaDetailState> {
         }
     }
 
+    /** Last read is the log with the latest effective end, coarser winning a tie. */
+    private getMostRecentLog(logs: ActivitySummary[]): ActivitySummary {
+        return logs.reduce((mostRecent, log) =>
+            compareLogRecency(log, mostRecent) > 0 ? log : mostRecent);
+    }
+
+    /** First read is the log with the earliest anchor, coarser winning a tie. */
+    private getEarliestLog(logs: ActivitySummary[]): ActivitySummary {
+        return logs.reduce((earliest, log) =>
+            compareLogAnchorOrder(log, earliest) < 0 ? log : earliest);
+    }
+
     private renderStats(root: HTMLElement) {
         const statsDiv = root.querySelector('#media-first-last-stats') as HTMLElement;
         const { logs, media, readingSpeedSettings } = this.state;
@@ -844,8 +856,8 @@ export class MediaDetail extends Component<MediaDetailState> {
         statsDiv.style.display = 'flex';
         statsDiv.style.alignItems = 'center';
 
-        const lastLogDate = logs[0].date;
-        const firstLogDate = logs.at(-1)?.date ?? lastLogDate;
+        const lastLogDate = formatLogDate(this.getMostRecentLog(logs));
+        const firstLogDate = formatLogDate(this.getEarliestLog(logs));
         const totalMin = logs.reduce((acc, log) => acc + log.duration_minutes, 0);
         const totalChars = logs.reduce((acc, log) => acc + log.characters, 0);
         const totalStr = formatHhMm(totalMin);
