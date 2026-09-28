@@ -16,6 +16,7 @@ import {
 } from '../stats/reading_speed';
 import { getReadingReportService, type ReadingReportResult } from '../stats/reading_report_service';
 import {
+    formatReadingReportDuration,
     interpolateReadingReportValue,
     isReadingReportMotionOff,
     rankReadingContentTypes,
@@ -35,7 +36,7 @@ function readingSpeedRowSelector(contentType: ReadingContentType): string {
 }
 
 function formatReadingReportValue(metric: ReadingReportMetric, value: number): string {
-    return metric === 'speed' ? formatReadingSpeed(value) : formatStatsDuration(value);
+    return metric === 'speed' ? formatReadingSpeed(value) : formatReadingReportDuration(value);
 }
 
 function activeReadingReportValue(metric: ReadingReportMetric, target: { speed: number; minutes: number }): number {

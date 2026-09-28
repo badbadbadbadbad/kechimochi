@@ -22,9 +22,10 @@ describe('CUJ: Reading Analysis (Report Card)', () => {
     await panel.waitForDisplayed({ timeout: 10000 });
 
     // 3,000 characters in 30 minutes is 6,000 char/hr.
+    const expectedSpeedText = await browser.execute(() => (6000).toLocaleString());
     const mangaRow = $('#dashboard-reading-speed [data-content-type="Manga"]');
-    await browser.waitUntil(async () => (await mangaRow.getText()).includes('6,000'), {
-      timeout: 10000, timeoutMsg: 'Manga reading speed row did not reach 6,000'
+    await browser.waitUntil(async () => (await mangaRow.getText()).includes(expectedSpeedText), {
+      timeout: 10000, timeoutMsg: `Manga reading speed row did not reach ${expectedSpeedText}`
     });
 
     await $('#reading-speed-toggle-time').click();

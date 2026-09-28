@@ -1,6 +1,12 @@
 import { READING_CONTENT_TYPES, type ReadingContentType } from '../stats/reading_speed';
+import { toTimeParts } from '../time';
 
 export const READING_REPORT_ANIMATION_MS = 300;
+
+export function formatReadingReportDuration(totalMinutes: number): string {
+    const { hours, minutes } = toTimeParts(totalMinutes);
+    return hours > 0 ? `${hours}h ${minutes.toString().padStart(2, '0')}m` : `${minutes}m`;
+}
 
 export function rankReadingContentTypes(
     valueOf: (contentType: ReadingContentType) => number,

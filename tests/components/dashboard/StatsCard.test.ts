@@ -235,7 +235,7 @@ describe('StatsCard', () => {
 
             const rowsAfter = Array.from(container.querySelectorAll('.dashboard-reading-speed-row'));
             expect(rowsAfter.map(row => row.getAttribute('data-content-type'))).toEqual(['Novel', 'Manga']);
-            expect(container.querySelector('[data-content-type="Novel"] .dashboard-reading-speed-row-value')?.textContent).toBe('2h');
+            expect(container.querySelector('[data-content-type="Novel"] .dashboard-reading-speed-row-value')?.textContent).toBe('2h 00m');
             expect(apiMocks.saveLocalSettingValues).toHaveBeenCalledWith({
                 values: { [SETTING_KEYS.DASHBOARD_READING_REPORT_METRIC]: 'time' },
             });
