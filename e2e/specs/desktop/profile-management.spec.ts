@@ -30,13 +30,10 @@ describe('Single-User Profile Renaming CUJ', () => {
     expect(await getHeaderProfileName()).toBe(TEST_PROFILE_NAME);
   });
 
-  it('should keep the header avatar hidden until a profile picture is uploaded', async () => {
-    const headerAvatar = $('#nav-user-avatar');
-    await browser.waitUntil(async () => (await headerAvatar.getAttribute('data-has-image')) === 'false', {
-      timeout: 5000,
-      timeoutMsg: 'Header avatar was not marked as imageless before a profile picture is uploaded',
-    });
-    expect(await headerAvatar.isDisplayed()).toBe(false);
+  it(`should show ${profileInitials} in the header avatar before a profile picture is uploaded`, async () => {
+    const headerFallback = $('#nav-profile-tab-avatar-fallback');
+    await headerFallback.waitForDisplayed({ timeout: 5000 });
+    expect(await headerFallback.getText()).toBe(profileInitials);
   });
 
   it(`should verify the initial profile is ${TEST_PROFILE_NAME} in the profile tab`, async () => {
@@ -60,8 +57,8 @@ describe('Single-User Profile Renaming CUJ', () => {
     await uploadProfilePicture(profilePictureFixture);
 
     const heroImg = $('#profile-hero-avatar img');
-    const navImg = $('#nav-user-avatar-image');
-    const navFallback = $('#nav-user-avatar-fallback');
+    const navImg = $('#nav-profile-tab-avatar-image');
+    const navFallback = $('#nav-profile-tab-avatar-fallback');
 
     await heroImg.waitForDisplayed({ timeout: 5000 });
     await navImg.waitForDisplayed({ timeout: 5000 });

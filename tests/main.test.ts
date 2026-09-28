@@ -795,10 +795,10 @@ describe('main.ts initialization', () => {
 
         await bootApp();
 
-        const img = document.getElementById('nav-user-avatar-image') as HTMLImageElement;
+        const img = document.getElementById('nav-profile-tab-avatar-image') as HTMLImageElement;
         await vi.waitFor(() => expect(img.style.display).toBe('block'));
         expect(img.src).toContain('data:image/png;base64,YWJj');
-        expect(document.getElementById('nav-user-avatar')?.dataset.hasImage).toBe('true');
+        expect(document.getElementById('nav-profile-tab-avatar-fallback')?.style.display).toBe('none');
     });
 
     it('should fall back to initials when profile picture loading fails', async () => {
@@ -806,10 +806,10 @@ describe('main.ts initialization', () => {
 
         await bootApp();
 
-        const fallback = document.getElementById('nav-user-avatar-fallback');
+        const fallback = document.getElementById('nav-profile-tab-avatar-fallback');
         const currentName = document.getElementById('nav-user-name')?.textContent ?? '';
         await vi.waitFor(() => expect(fallback?.textContent).toBe(currentName.slice(0, 2).toUpperCase()));
-        expect(document.getElementById('nav-user-avatar')?.dataset.hasImage).toBe('false');
+        expect(fallback?.style.display).toBe('flex');
     });
 
     it('should handle window controls', async () => {

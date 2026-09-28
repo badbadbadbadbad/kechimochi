@@ -196,9 +196,6 @@ export class App {
     private readonly profileContainer: HTMLElement;
 
     private readonly navUserNameEl: HTMLElement;
-    private readonly navUserAvatarEl: HTMLElement | null;
-    private readonly navUserAvatarImgEl: HTMLImageElement | null;
-    private readonly navUserAvatarFallbackEl: HTMLElement | null;
     private readonly navProfileTabAvatarEl: HTMLElement | null;
     private readonly navProfileTabAvatarImgEl: HTMLImageElement | null;
     private readonly navProfileTabAvatarFallbackEl: HTMLElement | null;
@@ -218,9 +215,6 @@ export class App {
         this.updateManager = updateManager;
         this.viewContainer = document.getElementById('view-container')!;
         this.navUserNameEl = document.getElementById('nav-user-name')!;
-        this.navUserAvatarEl = document.getElementById('nav-user-avatar');
-        this.navUserAvatarImgEl = document.getElementById('nav-user-avatar-image') as HTMLImageElement | null;
-        this.navUserAvatarFallbackEl = document.getElementById('nav-user-avatar-fallback');
         this.navProfileTabAvatarEl = document.getElementById('nav-profile-tab-avatar');
         this.navProfileTabAvatarImgEl = document.getElementById('nav-profile-tab-avatar-image') as HTMLImageElement | null;
         this.navProfileTabAvatarFallbackEl = document.getElementById('nav-profile-tab-avatar-fallback');
@@ -522,27 +516,19 @@ export class App {
         this.currentProfile = await getSetting(SETTING_KEYS.PROFILE_NAME) || this.currentProfile || DEFAULTS.PROFILE;
         this.navUserNameEl.textContent = this.currentProfile;
 
-        const initials = getProfileInitials(this.currentProfile);
-        const fallbacks = [this.navUserAvatarFallbackEl, this.navProfileTabAvatarFallbackEl];
-        for (const fallback of fallbacks) {
-            if (fallback) fallback.textContent = initials;
-        }
+        const fallback = this.navProfileTabAvatarFallbackEl;
+        if (fallback) fallback.textContent = getProfileInitials(this.currentProfile);
 
         const profilePicture = await this.loadProfilePicture();
         const profilePictureSrc = profilePictureToDataUrl(profilePicture);
 
-        const updateAvatar = (img: HTMLImageElement | null, fallback: HTMLElement | null, el: HTMLElement | null) => {
-            if (img) {
-                img.src = profilePictureSrc || '';
-                img.style.display = profilePictureSrc ? 'block' : 'none';
-                if (fallback) fallback.style.display = profilePictureSrc ? 'none' : 'flex';
-            }
-            el?.setAttribute('aria-label', `${this.currentProfile} profile picture`);
-        };
-
-        updateAvatar(this.navUserAvatarImgEl, this.navUserAvatarFallbackEl, this.navUserAvatarEl);
-        updateAvatar(this.navProfileTabAvatarImgEl, this.navProfileTabAvatarFallbackEl, this.navProfileTabAvatarEl);
-        if (this.navUserAvatarEl) this.navUserAvatarEl.dataset.hasImage = profilePictureSrc ? 'true' : 'false';
+        const avatarImage = this.navProfileTabAvatarImgEl;
+        if (avatarImage) {
+            avatarImage.src = profilePictureSrc || '';
+            avatarImage.style.display = profilePictureSrc ? 'block' : 'none';
+            if (fallback) fallback.style.display = profilePictureSrc ? 'none' : 'flex';
+        }
+        this.navProfileTabAvatarEl?.setAttribute('aria-label', `${this.currentProfile} profile picture`);
     }
 
     private async loadProfilePicture(): Promise<ProfilePicture | null> {

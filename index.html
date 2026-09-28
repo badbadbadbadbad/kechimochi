@@ -44,16 +44,6 @@
             <span class="nav-link-icon" aria-hidden="true"></span>
             <span class="nav-link-label">Timeline</span>
           </a>
-          <a class="nav-link" data-view="profile" aria-label="Profile">
-            <span class="nav-link-icon nav-link-icon--profile" aria-hidden="true">
-              <span class="profile-avatar profile-avatar-nav" id="nav-profile-tab-avatar">
-                <span class="profile-avatar-fallback" id="nav-profile-tab-avatar-fallback">U</span>
-                <img id="nav-profile-tab-avatar-image" class="profile-avatar-image" alt="Profile tab avatar" style="display: none;" />
-              </span>
-            </span>
-            <span class="nav-link-label">Profile</span>
-            <span class="nav-link-profile-name" id="nav-user-name">User</span>
-          </a>
         </nav>
 
         <div id="nav-spacer"></div>
@@ -62,19 +52,25 @@
           <button class="app-version-button" id="app-version-button" type="button"></button>
           <button class="nav-sync-status-btn" id="nav-sync-status-btn" type="button" aria-label="Sync status">
             <span class="sync-status-dot" id="nav-sync-status-dot" aria-hidden="true"></span>
-            Sync
+            <span class="nav-button-text">Sync</span>
           </button>
         </div>
 
-        <button class="btn btn-primary" id="btn-add-activity" type="button" aria-label="Log activity">
+        <button class="btn btn-primary" id="btn-add-activity" type="button" aria-label="Log activity" title="Log activity">
           <span class="activity-btn-icon" aria-hidden="true"></span>
-          <span class="activity-btn-text">Log</span>
+          <span class="activity-btn-text nav-button-text">Log</span>
         </button>
 
-        <div class="profile-avatar profile-avatar-nav" id="nav-user-avatar" aria-hidden="true" data-has-image="false">
-          <span class="profile-avatar-fallback" id="nav-user-avatar-fallback">U</span>
-          <img id="nav-user-avatar-image" class="profile-avatar-image" alt="" style="display: none;" />
-        </div>
+        <a class="nav-link" data-view="profile">
+          <span class="nav-link-icon nav-link-icon--profile" aria-hidden="true">
+            <span class="profile-avatar profile-avatar-nav" id="nav-profile-tab-avatar">
+              <span class="profile-avatar-fallback" id="nav-profile-tab-avatar-fallback">U</span>
+              <img id="nav-profile-tab-avatar-image" class="profile-avatar-image" alt="Profile tab avatar" style="display: none;" />
+            </span>
+          </span>
+          <span class="nav-link-label">Profile</span>
+          <span class="nav-link-profile-name" id="nav-user-name">User</span>
+        </a>
       </header>
 
       <div class="mobile-top-bar" id="mobile-top-bar">

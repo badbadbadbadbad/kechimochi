@@ -386,9 +386,6 @@ export function renderMainAppShell() {
         <div id="app" data-boot-state="loading">
             <div id="desktop-title-bar"></div>
             <header>
-                <div id="nav-user-avatar"></div>
-                <img id="nav-user-avatar-image" />
-                <span id="nav-user-avatar-fallback"></span>
                 <div id="nav-profile-tab-avatar"></div>
                 <img id="nav-profile-tab-avatar-image" />
                 <span id="nav-profile-tab-avatar-fallback"></span>
