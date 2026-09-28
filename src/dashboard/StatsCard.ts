@@ -332,7 +332,7 @@ export class StatsCard extends Component<StatsCardState> {
 
         let startTimestamp: number | null = null;
         const step = (timestamp: number) => {
-            if (startTimestamp === null) startTimestamp = timestamp;
+            startTimestamp ??= timestamp;
             if (isReadingReportMotionOff() || !this.isReadingReportCardVisible()) {
                 for (const [contentType, entry] of entries) this.writeReadingReportRow(contentType, entry.target);
                 this.readingReportAnimationHandle = null;

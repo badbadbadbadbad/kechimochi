@@ -66,7 +66,7 @@ function toMediaReadingAggregate(dto: MediaReadingAggregateDto): MediaReadingAgg
 }
 
 function parseCachedInteger(value: string | undefined): number {
-    const parsed = value === undefined ? NaN : Number.parseInt(value, 10);
+    const parsed = value === undefined ? Number.NaN : Number.parseInt(value, 10);
     return Number.isFinite(parsed) ? parsed : 0;
 }
 
