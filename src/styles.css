@@ -497,6 +497,7 @@ body[data-theme='eink'] {
   --heatmap-light-base: 92;
   --heatmap-light-range: -80;
   --heatmap-empty: #ffffff;
+  --heatmap-empty-text-color: #000000;
   --chart-1: #000000;
   --chart-2: #404040;
   --chart-3: #808080;

@@ -1005,6 +1005,8 @@
   --heatmap-period-preview-outline: color-mix(in srgb, var(--heatmap-period-outline) 45%, var(--bg-card));
   --heatmap-hover-outline: color-mix(in srgb, var(--text-primary) 60%, var(--bg-card));
   --heatmap-focus-outline: color-mix(in srgb, var(--accent-green) 65%, white 35%);
+  --heatmap-empty-text: var(--heatmap-empty-text-color, color-mix(in srgb, white 70%, var(--heatmap-empty)));
+  --heatmap-outside-fade: 45%;
 }
 
 .heatmap-cell[data-selection-edges]::after,
@@ -1092,7 +1094,7 @@
   border: none;
   border-radius: var(--heatmap-cell-radius);
   background-color: var(--heatmap-empty);
-  color: var(--text-secondary);
+  color: var(--heatmap-empty-text);
   font-weight: 700;
 }
 
@@ -1164,8 +1166,8 @@
 .heatmap-calendar-day.heatmap-calendar-day-outside,
 .heatmap-calendar-day.heatmap-calendar-day-outside:hover,
 .heatmap-calendar-day.heatmap-calendar-day-outside:active {
-  background-color: color-mix(in srgb, var(--heatmap-empty) 35%, var(--bg-card));
-  color: color-mix(in srgb, var(--text-secondary) 45%, var(--bg-card));
+  background-color: color-mix(in srgb, var(--heatmap-empty) var(--heatmap-outside-fade), var(--bg-card));
+  color: color-mix(in srgb, var(--heatmap-empty-text) var(--heatmap-outside-fade), var(--bg-card));
 }
 
 .heatmap-text-light {
