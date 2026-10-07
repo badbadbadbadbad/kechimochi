@@ -9,7 +9,7 @@ The format is based on Keep a Changelog, with one section per released version.
 ### Changed
  - Selects now match multiselects through a forced Kechimochi theme. Mobile keeps its native picker.
  - Characters fields in the log and milestone modals start empty instead of 0 and accept only digits.
- - Dashboard heatmap now has a mobile version, outlines the selected week or month, follows the selected period, and respects the week start day.
+ - Dashboard heatmap now has a mobile version, shows month labels above the year grid, outlines the selected week or month, follows the selected period, and respects the week start day.
 
 ### Fixed
  - Media details no longer show an empty stats box for media with no logged activity

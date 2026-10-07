@@ -1,5 +1,6 @@
-import type { HeatmapSlot } from './heatmap_layout';
+import { getMonthLabelSpans, type HeatmapSlot } from './heatmap_layout';
 import {
+    MOAT_MARKUP,
     buildActivityMarkup,
     buildSelectionMarkup,
     getSelectionOutline,
@@ -12,7 +13,18 @@ export function renderYearGrid(columns: HeatmapSlot[][], context: HeatmapRenderC
     const renderedColumns = columns
         .map(column => `<div class="heatmap-col">${column.map(slot => renderYearCell(slot, context, outline)).join('')}</div>`)
         .join('');
-    return `<div class="heatmap">${renderedColumns}</div>`;
+    return `${renderMonthLabels(columns, context)}<div class="heatmap">${renderedColumns}</div>`;
+}
+
+function renderMonthLabels(columns: HeatmapSlot[][], context: HeatmapRenderContext): string {
+    const labels = getMonthLabelSpans(columns, context.selection)
+        .map(span => {
+            const attributes = [`data-month-index="${span.monthIndex}"`, `data-column-count="${span.columnCount}"`];
+            if (span.isSelected) attributes.push('data-selected');
+            return `<span class="heatmap-month-label" ${attributes.join(' ')}>${span.label}</span>`;
+        })
+        .join('');
+    return `<div class="heatmap-month-labels" aria-hidden="true">${labels}</div>`;
 }
 
 function renderYearCell(slot: HeatmapSlot, context: HeatmapRenderContext, outline: SelectionOutline): string {
@@ -28,5 +40,5 @@ function renderYearCell(slot: HeatmapSlot, context: HeatmapRenderContext, outlin
         classes.push('heatmap-cell-interactive');
         attributes.push('role="button"', 'tabindex="0"');
     }
-    return `<div class="${classes.join(' ')}" ${attributes.join(' ')}></div>`;
+    return `<div class="${classes.join(' ')}" ${attributes.join(' ')}>${MOAT_MARKUP}</div>`;
 }

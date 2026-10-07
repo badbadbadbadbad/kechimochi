@@ -276,6 +276,25 @@ describe('Heatmap', () => {
             expect(gridCell('2024-03-06').classList.contains('is-in-selected-period')).toBe(true);
         });
 
+        it('should label the months above the grid and highlight only the selected one', () => {
+            renderWith(march);
+            const labels = [...container.querySelectorAll<HTMLElement>('[data-month-index]')];
+
+            expect(labels.map(label => label.textContent)).toEqual(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']);
+            expect(labels.filter(label => label.hasAttribute('data-selected')).map(label => label.textContent)).toEqual(['Mar']);
+            expect(labels.map(label => label.dataset.columnCount)).toEqual(['4', '5', '4', '4', '5', '4', '4', '5', '4', '5', '4', '5']);
+        });
+
+        it('should give every day a moat layer but not the padding slots', () => {
+            renderWith(marchWeek);
+
+            expect(gridCell('2024-03-04').querySelector('.heatmap-cell-moat')).not.toBeNull();
+            const calendarDays = [...container.querySelectorAll('.heatmap-calendar-day')];
+            expect(calendarDays.length).toBeGreaterThan(0);
+            expect(calendarDays.every(day => day.querySelector('.heatmap-cell-moat') !== null)).toBe(true);
+            expect(container.querySelector('.heatmap-cell-padding .heatmap-cell-moat')).toBeNull();
+        });
+
         it('should not outline a selected year', () => {
             renderWith({ period: 'year', start: '2024-01-01', end: '2024-12-31', weekStartDay: MONDAY });
 

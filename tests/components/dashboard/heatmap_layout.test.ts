@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+    MONTH_INDICES,
     buildMonthWeeks,
     buildYearColumns,
     formatMonthInitial,
@@ -9,6 +10,7 @@ import {
     getDaySelectionLabel,
     getHeatmapColor,
     getMonthIntensity,
+    getMonthLabelSpans,
     getPeriodForDate,
     getRegionOutlineEdges,
     getWeekdayLabels,
@@ -18,6 +20,7 @@ import {
     shouldOutlinePeriod,
     stepMonth,
     type HeatmapSelection,
+    type MonthLabelSpan,
 } from '../../../src/dashboard/cards/heatmap/heatmap_layout';
 
 const MONDAY = 1;
@@ -262,6 +265,84 @@ describe('getRegionOutlineEdges', () => {
         const grid = [['in1', 'in2', 'in3'], ['in4', 'in5', 'in6'], ['in7', 'in8', 'in9']];
 
         expect(getRegionOutlineEdges(grid, isInside, 'rows').has('in5')).toBe(false);
+    });
+});
+
+describe('getMonthLabelSpans', () => {
+    const selectedLabels = (spans: MonthLabelSpan[]) => spans.filter(span => span.isSelected).map(span => span.label);
+    const monthSelection = (start: string, end: string): HeatmapSelection => ({ period: 'month', start, end, weekStartDay: MONDAY });
+
+    it('should give each month the columns whose middle day falls in it', () => {
+        const spans = getMonthLabelSpans(buildYearColumns(2026, MONDAY), null);
+
+        expect(spans.map(span => span.label)).toEqual(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']);
+        expect(spans.map(span => span.columnCount)).toEqual([5, 4, 4, 5, 4, 4, 5, 4, 4, 5, 4, 5]);
+        expect(spans.map(span => span.startColumn)).toEqual([0, 5, 9, 13, 18, 22, 26, 31, 35, 39, 44, 48]);
+    });
+
+    it('should cover every column with twelve months of four or five columns for any first weekday', () => {
+        for (let year = 2020; year <= 2030; year++) {
+            for (const weekStartDay of [MONDAY, SUNDAY, SATURDAY]) {
+                const columns = buildYearColumns(year, weekStartDay);
+                const spans = getMonthLabelSpans(columns, null);
+
+                expect(spans.map(span => span.monthIndex)).toEqual(MONTH_INDICES);
+                expect(spans.every(span => span.columnCount === 4 || span.columnCount === 5)).toBe(true);
+                expect(spans.every((span, index) => index === 0 || span.startColumn === spans[index - 1].startColumn + spans[index - 1].columnCount)).toBe(true);
+                expect(spans.at(-1)!.startColumn + spans.at(-1)!.columnCount).toBe(columns.length);
+            }
+        }
+    });
+
+    it('should fold a first column that is mostly last year into January', () => {
+        const spans = getMonthLabelSpans(buildYearColumns(2027, MONDAY), null);
+
+        expect(spans[0]).toMatchObject({ monthIndex: 0, startColumn: 0, columnCount: 5 });
+    });
+
+    it('should fold a last column that is mostly next year into December', () => {
+        const columns = buildYearColumns(2024, MONDAY);
+        const spans = getMonthLabelSpans(columns, null);
+
+        expect(columns.at(-1)).toEqual(['2024-12-30', '2024-12-31']);
+        expect(spans.at(-1)).toMatchObject({ monthIndex: 11, columnCount: 5 });
+    });
+
+    it('should span a 54-column year', () => {
+        const columns = buildYearColumns(2028, SUNDAY);
+        const spans = getMonthLabelSpans(columns, null);
+
+        expect(columns).toHaveLength(54);
+        expect(spans[0]).toMatchObject({ monthIndex: 0, startColumn: 0 });
+        expect(spans.at(-1)!.startColumn + spans.at(-1)!.columnCount).toBe(54);
+    });
+
+    it('should highlight only the selected month, not the neighbours sharing its edge weeks', () => {
+        const spans = getMonthLabelSpans(buildYearColumns(2026, MONDAY), monthSelection('2026-09-01', '2026-09-30'));
+
+        expect(selectedLabels(spans)).toEqual(['Sep']);
+    });
+
+    it('should highlight the month that owns the column of a week straddling two months', () => {
+        const columns = buildYearColumns(2026, MONDAY);
+
+        expect(selectedLabels(getMonthLabelSpans(columns, weekSelection('2026-09-28', '2026-10-04')))).toEqual(['Oct']);
+        expect(selectedLabels(getMonthLabelSpans(columns, weekSelection('2026-08-31', '2026-09-06')))).toEqual(['Sep']);
+    });
+
+    it('should highlight the month above a week straddling New Year in either year', () => {
+        const newYearWeek = weekSelection('2026-12-28', '2027-01-03');
+
+        expect(selectedLabels(getMonthLabelSpans(buildYearColumns(2026, MONDAY), newYearWeek))).toEqual(['Dec']);
+        expect(selectedLabels(getMonthLabelSpans(buildYearColumns(2027, MONDAY), newYearWeek))).toEqual(['Jan']);
+    });
+
+    it('should highlight nothing for a year, All Time, or a period in another year', () => {
+        const columns = buildYearColumns(2026, MONDAY);
+
+        expect(selectedLabels(getMonthLabelSpans(columns, { period: 'year', start: '2026-01-01', end: '2026-12-31', weekStartDay: MONDAY }))).toEqual([]);
+        expect(selectedLabels(getMonthLabelSpans(columns, { period: 'all-time', start: '2020-01-01', end: '2026-12-31', weekStartDay: MONDAY }))).toEqual([]);
+        expect(selectedLabels(getMonthLabelSpans(columns, monthSelection('2025-09-01', '2025-09-30')))).toEqual([]);
     });
 });
 

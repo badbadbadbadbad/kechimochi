@@ -19,6 +19,7 @@ const MONTHS_PER_YEAR = 12;
 const DAYS_FROM_WEEK_START_TO_MIDDLE = 3;
 const WEEKDAY_LABELS_FROM_SUNDAY = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 const LIGHT_BACKGROUND_THRESHOLD_LIGHTNESS = 60;
+const MONTH_NAME_REFERENCE_YEAR = 2000;
 
 const PERIOD_TIME_RANGE_DAYS: Record<ActivityPeriod, ActivityTimeRangeDays> = {
     week: ACTIVITY_TIME_RANGES.WEEKLY,
@@ -31,6 +32,7 @@ const DAY_LABEL_FORMATTER = new Intl.DateTimeFormat('en-US', { month: 'short', d
 const MONTH_LABEL_FORMATTER = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' });
 const SHORT_MONTH_LABEL_FORMATTER = new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' });
 const MONTH_INITIAL_FORMATTER = new Intl.DateTimeFormat('en-US', { month: 'narrow' });
+const MONTH_SHORT_NAME_FORMATTER = new Intl.DateTimeFormat('en-US', { month: 'short' });
 
 export type HeatmapGridOrientation = 'columns' | 'rows';
 export type HeatmapTextTone = 'light' | 'dark';
@@ -67,6 +69,14 @@ export interface HeatmapColor {
 }
 
 export type HeatmapSlot = string | null;
+
+export interface MonthLabelSpan {
+    monthIndex: number;
+    label: string;
+    startColumn: number;
+    columnCount: number;
+    isSelected: boolean;
+}
 
 function getIntensityRatio(value: number, fullIntensityValue: number): number {
     if (value <= 0) return 0;
@@ -229,6 +239,34 @@ export function getRegionOutlineEdges(
     return edgesByDate;
 }
 
+export function getMonthLabelSpans(columns: HeatmapSlot[][], selection: HeatmapSelection | null): MonthLabelSpan[] {
+    const selectedMonthIndex = getSelectedMonthIndex(columns, selection);
+    const spans: MonthLabelSpan[] = [];
+    columns.forEach((column, columnIndex) => {
+        const monthIndex = getColumnMonthIndex(column);
+        const currentSpan = spans.at(-1);
+        if (currentSpan?.monthIndex === monthIndex) {
+            currentSpan.columnCount += 1;
+            return;
+        }
+        spans.push({
+            monthIndex,
+            label: MONTH_SHORT_NAME_FORMATTER.format(new Date(MONTH_NAME_REFERENCE_YEAR, monthIndex, 1)),
+            startColumn: columnIndex,
+            columnCount: 1,
+            isSelected: monthIndex === selectedMonthIndex,
+        });
+    });
+    return spans;
+}
+
+function getSelectedMonthIndex(columns: HeatmapSlot[][], selection: HeatmapSelection | null): number | null {
+    if (selection === null || !shouldOutlinePeriod(selection.period)) return null;
+    const selectedColumn = columns.find(column => column.some(slot => slot !== null && isDateInRange(slot, selection)));
+    if (!selectedColumn) return null;
+    return selection.period === 'month' ? parseIsoDate(selection.start).getMonth() : getColumnMonthIndex(selectedColumn);
+}
+
 export function formatMonthLabel(month: DisplayedMonth): string {
     return MONTH_LABEL_FORMATTER.format(new Date(month.year, month.monthIndex, 1));
 }
@@ -238,7 +276,7 @@ export function formatShortMonthLabel(month: DisplayedMonth): string {
 }
 
 export function formatMonthInitial(monthIndex: number): string {
-    return MONTH_INITIAL_FORMATTER.format(new Date(2000, monthIndex, 1));
+    return MONTH_INITIAL_FORMATTER.format(new Date(MONTH_NAME_REFERENCE_YEAR, monthIndex, 1));
 }
 
 export function formatMonthKey(month: DisplayedMonth): string {
@@ -254,6 +292,19 @@ export function parseMonthKey(monthKey: string): DisplayedMonth {
 
 function getLeadingPadding(firstDay: Date, weekStartDay: number): number {
     return (firstDay.getDay() - normalizeWeekStartDay(weekStartDay) + DAYS_PER_WEEK) % DAYS_PER_WEEK;
+}
+
+function getColumnMonthIndex(column: HeatmapSlot[]): number {
+    const firstDateIndex = column.findIndex(slot => slot !== null);
+    const firstDate = parseIsoDate(column[firstDateIndex]!);
+    const middleDay = new Date(
+        firstDate.getFullYear(),
+        firstDate.getMonth(),
+        firstDate.getDate() - firstDateIndex + DAYS_FROM_WEEK_START_TO_MIDDLE,
+    );
+    if (middleDay.getFullYear() < firstDate.getFullYear()) return 0;
+    if (middleDay.getFullYear() > firstDate.getFullYear()) return MONTHS_PER_YEAR - 1;
+    return middleDay.getMonth();
 }
 
 function chunkIntoWeeks<T>(slots: T[]): T[][] {

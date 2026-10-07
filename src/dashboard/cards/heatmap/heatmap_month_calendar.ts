@@ -13,6 +13,7 @@ import {
     type DisplayedMonth,
 } from './heatmap_layout';
 import {
+    MOAT_MARKUP,
     buildActivityMarkup,
     buildSelectionMarkup,
     getSelectionOutline,
@@ -76,8 +77,8 @@ function renderCalendarDay(date: string, month: DisplayedMonth, context: Heatmap
     const dayNumber = Number.parseInt(date.slice(8, 10), 10);
 
     if (!selection.isSelectable) {
-        return `<span class="${classes.join(' ')}" ${attributes.join(' ')}>${dayNumber}</span>`;
+        return `<span class="${classes.join(' ')}" ${attributes.join(' ')}>${dayNumber}${MOAT_MARKUP}</span>`;
     }
     classes.push('heatmap-calendar-day-interactive');
-    return `<button type="button" class="${classes.join(' ')}" ${attributes.join(' ')}>${dayNumber}</button>`;
+    return `<button type="button" class="${classes.join(' ')}" ${attributes.join(' ')}>${dayNumber}${MOAT_MARKUP}</button>`;
 }

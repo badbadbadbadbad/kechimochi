@@ -58,6 +58,16 @@ describe('Dashboard heatmap CUJ', () => {
     expect(selection['2024-03-04']).toBe('top right left');
     expect(selection['2024-03-10']).toBe('right bottom left');
 
+    const selectedMonthLabelSelector = `${HEATMAP_SELECTOR} [data-month-index][data-selected]`;
+    expect(await $$(selectedMonthLabelSelector).length).toBe(1);
+    expect(await $(selectedMonthLabelSelector).isDisplayed()).toBe(true);
+    expect(await $(selectedMonthLabelSelector).getText()).toBe('Mar');
+    const [labelLeft, firstMarchWeekLeft] = await browser.execute((labelSelector, cellSelector) => [
+      document.querySelector(labelSelector)!.getBoundingClientRect().left,
+      document.querySelector(cellSelector)!.getBoundingClientRect().left,
+    ], selectedMonthLabelSelector, `${HEATMAP_SELECTOR} [data-date="2024-03-04"]`);
+    expect(Math.abs(labelLeft - firstMarchWeekLeft)).toBeLessThan(1);
+
     await $(`${HEATMAP_SELECTOR} [data-date="2024-03-13"]`).moveTo();
     await browser.waitUntil(async () => (await readVisibleEdges('previewEdges'))['2024-03-11'] === 'top right left', {
       timeout: 5000,

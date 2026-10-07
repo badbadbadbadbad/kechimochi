@@ -14,6 +14,7 @@ import {
 } from './heatmap_layout';
 
 export const IN_SELECTED_PERIOD_CLASS = 'is-in-selected-period';
+export const MOAT_MARKUP = '<span class="heatmap-cell-moat" aria-hidden="true"></span>';
 
 export interface HeatmapRenderContext {
     days: readonly DailyHeatmap[];
