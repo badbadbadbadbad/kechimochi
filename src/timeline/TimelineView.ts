@@ -585,6 +585,10 @@ export class TimelineView extends Component<TimelineState> {
         const yearOptions = this.getYearOptions();
         const level = this.state.zoomLevel;
         const isCompact = level === 'compact';
+        const selectFields = [
+            level !== 'year' ? this.renderYearFilterField(yearOptions) : '',
+            !isTimelineBucketLevel(level) ? this.renderKindFilterField() : '',
+        ].join('');
 
         let timelineContent: string;
         let hasRows: boolean;
@@ -653,8 +657,7 @@ export class TimelineView extends Component<TimelineState> {
                 <section class="card timeline-filter-card">
                     <div class="timeline-filter-row">
                         ${this.renderSearchFilterField()}
-                        ${level !== 'year' ? this.renderYearFilterField(yearOptions) : ''}
-                        ${!isTimelineBucketLevel(level) ? this.renderKindFilterField() : ''}
+                        ${selectFields ? `<div class="timeline-filter-selects">${selectFields}</div>` : ''}
                         ${this.renderZoomControl()}
                     </div>
                 </section>
@@ -668,12 +671,12 @@ export class TimelineView extends Component<TimelineState> {
 
     private renderSearchFilterField(): string {
         return `
-            <label class="timeline-filter-field">
+            <label class="timeline-filter-field timeline-filter-field-search">
                 <span class="timeline-filter-label">Search</span>
                 <input
                     id="timeline-search"
                     type="search"
-                    placeholder="Search titles or milestones"
+                    placeholder="Search titles"
                     value="${escapeHTML(this.state.searchQuery)}"
                 />
             </label>

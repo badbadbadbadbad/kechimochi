@@ -260,6 +260,15 @@ describe('TimelineView', () => {
         expect(text).toContain('5h');
     });
 
+    it('renders the search input inside the search field with a "Search titles" placeholder', async () => {
+        const view = new TimelineView(container);
+        await renderAndLoad(view);
+        await vi.waitFor(() => expect(container.querySelector('#timeline-search')).not.toBeNull());
+
+        const searchInput = container.querySelector<HTMLInputElement>('.timeline-filter-field-search #timeline-search');
+        expect(searchInput?.placeholder).toBe('Search titles');
+    });
+
     it('renders each summary item as its label followed by its value', async () => {
         const view = new TimelineView(container);
         await renderAndLoad(view);
@@ -770,6 +779,31 @@ describe('TimelineView', () => {
             await zoomOutOnce(container); // month -> year
             await vi.waitFor(() => expect(container.querySelectorAll('.timeline-bucket-row')).toHaveLength(2));
             expect(container.querySelectorAll('.timeline-month-marker')).toHaveLength(0);
+        });
+
+        it('groups the visible selects per zoom level and omits the group when no select is visible', async () => {
+            const view = new TimelineView(container);
+            await renderAndLoad(view);
+            await vi.waitFor(() => expect(container.querySelectorAll('.timeline-entry')).toHaveLength(5));
+
+            function selectIdsInGroup(): string[] | null {
+                const group = container.querySelector('.timeline-filter-row > .timeline-filter-selects');
+                return group ? Array.from(group.querySelectorAll('select')).map(select => select.id) : null;
+            }
+
+            expect(selectIdsInGroup()).toEqual(['timeline-year-filter', 'timeline-kind-filter']);
+
+            await zoomOutOnce(container);
+            await vi.waitFor(() => expect(container.querySelectorAll('.timeline-compact-row').length).toBeGreaterThan(0));
+            expect(selectIdsInGroup()).toEqual(['timeline-year-filter', 'timeline-kind-filter']);
+
+            await zoomOutOnce(container);
+            await vi.waitFor(() => expect(container.querySelectorAll('.timeline-bucket-row').length).toBeGreaterThan(0));
+            expect(selectIdsInGroup()).toEqual(['timeline-year-filter']);
+
+            await zoomOutOnce(container);
+            await vi.waitFor(() => expect(container.querySelectorAll('.timeline-bucket-row').length).toBeGreaterThan(0));
+            expect(selectIdsInGroup()).toBeNull();
         });
 
         it('shows a kind-specific summary label and count once the Kind filter is set, reverting at bucket levels', async () => {
