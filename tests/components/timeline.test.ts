@@ -258,7 +258,22 @@ describe('TimelineView', () => {
         expect(text).toContain('Put Game B on pause');
         expect(text).toContain('Dropped Show C');
         expect(text).toContain('5h');
-        expect(text).toContain('Characters tracked');
+    });
+
+    it('renders each summary item as its label followed by its value', async () => {
+        const view = new TimelineView(container);
+        await renderAndLoad(view);
+        await vi.waitFor(() => expect(container.querySelectorAll('.timeline-summary-item').length).toBeGreaterThan(0));
+
+        const items = Array.from(container.querySelectorAll('.timeline-summary-item'));
+        expect(items.map(item => Array.from(item.children).map(child => child.className))).toEqual(
+            items.map(() => ['timeline-summary-label', 'timeline-summary-value']),
+        );
+        expect(items.map(item => item.querySelector('.timeline-summary-label')?.textContent)).toEqual([
+            'Total time',
+            'Completed titles',
+            'Characters',
+        ]);
     });
 
     it('renders one staged loading shell before committing the initial page', async () => {
@@ -787,6 +802,20 @@ describe('TimelineView', () => {
 
             expect(summaryValueFor('Completed titles')).toBeDefined();
             expect(summaryValueFor('Paused titles')).toBeUndefined();
+        });
+
+        it('labels the kind-specific summary item "Milestone titles" for the milestone Kind filter', async () => {
+            const view = new TimelineView(container);
+            await renderAndLoad(view);
+            await vi.waitFor(() => expect(container.querySelector('#timeline-kind-filter')).not.toBeNull());
+
+            const kindFilter = container.querySelector<HTMLSelectElement>('#timeline-kind-filter')!;
+            kindFilter.value = 'milestone';
+            kindFilter.dispatchEvent(new Event('change'));
+
+            await vi.waitFor(() => expect(
+                Array.from(container.querySelectorAll('.timeline-summary-label')).map(label => label.textContent),
+            ).toContain('Milestone titles'));
         });
 
         it('hides Kind at month and year and hides Year only at year, preserving prior selections', async () => {

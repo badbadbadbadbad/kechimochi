@@ -139,7 +139,7 @@ const KIND_SUMMARY_LABELS: Record<TimelineEventKind, string> = {
     finished: 'Completed titles',
     paused: 'Paused titles',
     dropped: 'Dropped titles',
-    milestone: 'Titles with milestones',
+    milestone: 'Milestone titles',
 };
 
 export class TimelineView extends Component<TimelineState> {
@@ -642,8 +642,8 @@ export class TimelineView extends Component<TimelineState> {
                         .map(
                             item => `
                                 <div class="timeline-summary-item">
-                                    <span class="timeline-summary-value">${escapeHTML(item.value)}</span>
                                     <span class="timeline-summary-label">${escapeHTML(item.label)}</span>
+                                    <span class="timeline-summary-value">${escapeHTML(item.value)}</span>
                                 </div>
                             `,
                         )
@@ -1242,7 +1242,7 @@ export class TimelineView extends Component<TimelineState> {
 
         if (this.state.summary.total_characters > 0) {
             items.push({
-                label: 'Characters tracked',
+                label: 'Characters',
                 value: this.state.summary.total_characters.toLocaleString(),
             });
         }
