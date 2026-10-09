@@ -611,15 +611,14 @@ describe('TimelineView', () => {
         expect(root.querySelector('.timeline-wave')?.innerHTML).toBe('');
     });
 
-    it('renders the decorative wave at the compact zoom level on a narrow viewport', () => {
-        stubNarrowViewport();
+    it('hides the decorative wave at the compact zoom level', () => {
         const view = new TestableTimelineView(container);
         view.state.zoomLevel = 'compact';
         const root = createWaveRoot();
 
         view.renderTimelineWave(root, [20, 20]);
 
-        expect(root.querySelector('.timeline-wave')?.innerHTML).toContain('timeline-wave-body');
+        expect(root.querySelector('.timeline-wave')?.innerHTML).toBe('');
     });
 
     it('renders a flat wave baseline when no rows are on screen', () => {
@@ -720,7 +719,7 @@ describe('TimelineView', () => {
             expect(container.querySelector('.timeline-bucket-label')?.textContent).toBe('March 2024');
         });
 
-        it('shows time and characters for a compact row and omits whichever is zero', async () => {
+        it('shows time and characters for a compact row and a dash for whichever is zero', async () => {
             vi.mocked(api.getTimelinePage).mockImplementation(async request => createPage(request, [
                 createEvent({ kind: 'finished', totalMinutes: 125, totalCharacters: 1234 }),
                 createEvent({
@@ -740,7 +739,7 @@ describe('TimelineView', () => {
             const metricsByRow = Array.from(container.querySelectorAll('.timeline-compact-row'))
                 .map(row => Array.from(row.querySelectorAll('.timeline-compact-metric'))
                     .map(node => node.textContent));
-            expect(metricsByRow).toEqual([['2h 5m', '1,234 chars'], ['2h'], ['500 chars']]);
+            expect(metricsByRow).toEqual([['2h 05m', '1,234 chars'], ['2h 00m', '–'], ['–', '500 chars']]);
         });
 
         it('omits a bucket total whose value is zero', async () => {
@@ -794,7 +793,7 @@ describe('TimelineView', () => {
             expect(scrollTo).toHaveBeenCalledWith({ top: 0 });
         });
 
-        it('shows the milestone name instead of the date and metrics in a compact row', async () => {
+        it('shows the milestone name alongside the date and milestone metrics in a compact row', async () => {
             vi.mocked(api.getTimelinePage).mockImplementation(async request => createPage(request, [
                 createEvent({
                     kind: 'milestone',
@@ -809,13 +808,14 @@ describe('TimelineView', () => {
             await vi.waitFor(() => expect(container.querySelectorAll('.timeline-compact-row')).toHaveLength(1));
 
             const row = container.querySelector('.timeline-compact-row');
-            expect(row?.querySelector('.timeline-compact-milestone')?.textContent?.trim()).toBe('Chapter 10');
-            expect(row?.querySelector('.timeline-compact-date')).toBeNull();
-            expect(row?.querySelectorAll('.timeline-compact-metric')).toHaveLength(0);
+            expect(row?.querySelector('p[title]')?.textContent?.trim()).toBe('Chapter 10');
+            expect(row?.querySelector('.timeline-compact-date')?.textContent?.trim()).toBe('Mar 15');
+            expect(Array.from(row?.querySelectorAll('.timeline-compact-metric') ?? []).map(node => node.textContent))
+                .toEqual(['45m', '500 chars']);
             expect(row?.querySelector('.timeline-media-link')?.textContent?.trim()).toBe('Novel A');
         });
 
-        it('puts the title left of the axis and the state cluster right in a compact row', async () => {
+        it('orders a compact card as date, kind, title, time and characters', async () => {
             const view = new TimelineView(container);
             await renderAndLoad(view);
             await vi.waitFor(() => expect(container.querySelectorAll('.timeline-entry')).toHaveLength(5));
@@ -823,9 +823,68 @@ describe('TimelineView', () => {
             await zoomOutOnce(container); // detailed -> compact
             await vi.waitFor(() => expect(container.querySelectorAll('.timeline-compact-row')).toHaveLength(5));
 
-            const row = container.querySelector('.timeline-compact-row')!;
-            expect(row.firstElementChild?.className).toContain('timeline-compact-detail');
-            expect(row.lastElementChild?.className).toContain('timeline-compact-meta');
+            const card = container.querySelector('.timeline-compact-row .timeline-compact-card')!;
+            expect(Array.from(card.children).map(child => child.className.split(' ').find(name => name.startsWith('timeline-compact-') && name !== 'timeline-compact-cell' && name !== 'timeline-compact-metric')))
+                .toEqual([
+                    'timeline-compact-date',
+                    'timeline-compact-kind',
+                    'timeline-compact-title',
+                    'timeline-compact-time',
+                    'timeline-compact-characters',
+                ]);
+        });
+
+        it('shows the variant in a compact row even when the title is unique', async () => {
+            vi.mocked(api.getTimelinePage).mockImplementation(async request => createPage(request, [
+                createEvent({ kind: 'finished', mediaVariant: 'Web' }),
+            ]));
+            const view = new TimelineView(container);
+            await renderAndLoad(view);
+            await zoomOutOnce(container);
+            await vi.waitFor(() => expect(container.querySelectorAll('.timeline-compact-row')).toHaveLength(1));
+
+            const sublines = container.querySelector('.timeline-compact-row .timeline-compact-sublines');
+            expect(sublines?.querySelector('.is-variant')?.textContent?.trim()).toBe('Web');
+            expect(sublines?.querySelector('.is-milestone')).toBeNull();
+        });
+
+        it('puts the variant before the milestone name in a compact row', async () => {
+            vi.mocked(api.getTimelinePage).mockImplementation(async request => createPage(request, [
+                createEvent({ kind: 'milestone', mediaVariant: 'Web', milestoneName: 'Chapter 10' }),
+            ]));
+            const view = new TimelineView(container);
+            await renderAndLoad(view);
+            await zoomOutOnce(container);
+            await vi.waitFor(() => expect(container.querySelectorAll('.timeline-compact-row')).toHaveLength(1));
+
+            const sublines = container.querySelector('.timeline-compact-row .timeline-compact-sublines');
+            expect(Array.from(sublines?.children ?? []).map(child => child.textContent?.trim()))
+                .toEqual(['Web', 'Chapter 10']);
+        });
+
+        it('renders no sublines group in a compact row without variant or milestone', async () => {
+            vi.mocked(api.getTimelinePage).mockImplementation(async request => createPage(request, [
+                createEvent({ kind: 'finished', mediaVariant: '' }),
+            ]));
+            const view = new TimelineView(container);
+            await renderAndLoad(view);
+            await zoomOutOnce(container);
+            await vi.waitFor(() => expect(container.querySelectorAll('.timeline-compact-row')).toHaveLength(1));
+
+            expect(container.querySelector('.timeline-compact-row .timeline-compact-sublines')).toBeNull();
+        });
+
+        it('puts the full media title on the compact title button', async () => {
+            vi.mocked(api.getTimelinePage).mockImplementation(async request => createPage(request, [
+                createEvent({ kind: 'finished', mediaTitle: 'Novel A' }),
+            ]));
+            const view = new TimelineView(container);
+            await renderAndLoad(view);
+            await zoomOutOnce(container);
+            await vi.waitFor(() => expect(container.querySelectorAll('.timeline-compact-row')).toHaveLength(1));
+
+            expect(container.querySelector('.timeline-compact-row .timeline-media-link')?.getAttribute('title'))
+                .toBe('Novel A');
         });
 
         it('groups month buckets under a year marker but emits none at year granularity', async () => {

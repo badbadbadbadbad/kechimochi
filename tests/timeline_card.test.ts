@@ -3,6 +3,7 @@ import {
     buildTimelineCardStats,
     getTimelineCardVariantLabel,
     getTimelineDisambiguationLabel,
+    getTimelineEventProgress,
 } from '../src/timeline/timeline_card';
 import type { TimelineEvent } from '../src/types';
 
@@ -79,6 +80,20 @@ describe('timeline_card.ts', () => {
                 .map(stat => stat.label);
             expect(labels).toEqual(['Date', 'Time', 'Characters', 'Type']);
             expect(milestoneLabels).toEqual(labels);
+        });
+    });
+
+    describe('getTimelineEventProgress', () => {
+        it.each(['finished', 'paused', 'dropped'] as const)('should return the media totals for a %s event', kind => {
+            expect(getTimelineEventProgress(buildEvent({ kind }))).toEqual({ minutes: 300, characters: 12_000 });
+        });
+
+        it('should return the milestone time and characters for a milestone event', () => {
+            expect(getTimelineEventProgress(buildEvent({ kind: 'milestone' }))).toEqual({ minutes: 45, characters: 3_000 });
+        });
+
+        it('should return nothing for a started event', () => {
+            expect(getTimelineEventProgress(buildEvent({ kind: 'started' }))).toBeNull();
         });
     });
 

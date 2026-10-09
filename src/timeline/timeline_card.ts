@@ -10,7 +10,7 @@ export interface TimelineCardStat {
     value: string;
 }
 
-interface TimelineCardProgress {
+export interface TimelineEventProgress {
     minutes: number;
     characters: number;
 }
@@ -37,7 +37,7 @@ const TERMINAL_EVENT_KINDS: ReadonlySet<TimelineEventKind> = new Set<TimelineEve
     'dropped',
 ]);
 
-function getTimelineCardProgress(event: TimelineEvent): TimelineCardProgress | null {
+export function getTimelineEventProgress(event: TimelineEvent): TimelineEventProgress | null {
     if (event.kind === 'milestone') {
         return { minutes: event.milestoneMinutes, characters: event.milestoneCharacters };
     }
@@ -48,7 +48,7 @@ function getTimelineCardProgress(event: TimelineEvent): TimelineCardProgress | n
 }
 
 export function buildTimelineCardStats(event: TimelineEvent, formattedDate: string): TimelineCardStat[] {
-    const progress = getTimelineCardProgress(event);
+    const progress = getTimelineEventProgress(event);
     const values: Record<TimelineCardStatKey, string> = {
         date: formattedDate,
         time: progress ? formatOptionalStatsDuration(progress.minutes) : '',
