@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as api from '../../src/api';
 import type {
     TimelineBucket,
+    TimelineBucketHighlight,
     TimelineBucketPage,
     TimelineBucketRequest,
     TimelineEvent,
@@ -361,6 +362,22 @@ describe('TimelineView', () => {
         expect(lines.every(line => line.querySelector('svg') !== null)).toBe(true);
     });
 
+    it('keeps alternating detailed cards across a month with an even number of events', async () => {
+        vi.mocked(api.getTimelinePage).mockImplementation(async request => createPage(request, [
+            createEvent({ date: '2024-03-20', mediaId: 1 }),
+            createEvent({ date: '2024-03-10', mediaId: 2 }),
+            createEvent({ date: '2024-02-15', mediaId: 3 }),
+        ]));
+
+        const view = new TimelineView(container);
+        await renderAndLoad(view);
+        await vi.waitFor(() => expect(container.querySelectorAll('.timeline-entry')).toHaveLength(3));
+
+        const sides = Array.from(container.querySelectorAll('.timeline-entry'))
+            .map(entry => (entry.classList.contains('is-left') ? 'left' : 'right'));
+        expect(sides).toEqual(['left', 'right', 'left']);
+    });
+
     it('renders the detailed card stats as labelled rows keyed by stat', async () => {
         vi.mocked(api.getTimelinePage).mockImplementation(async request => createPage(request, [createEvent()]));
 
@@ -716,7 +733,7 @@ describe('TimelineView', () => {
             await zoomOutOnce(container);
 
             await vi.waitFor(() => expect(container.querySelectorAll('.timeline-bucket-row')).toHaveLength(2));
-            expect(container.querySelector('.timeline-bucket-label')?.textContent).toBe('March 2024');
+            expect(container.querySelector('.timeline-bucket-label')?.textContent).toBe('March');
         });
 
         it('shows time and characters for a compact row and a dash for whichever is zero', async () => {
@@ -742,7 +759,7 @@ describe('TimelineView', () => {
             expect(metricsByRow).toEqual([['2h 05m', '1,234 chars'], ['2h 00m', '–'], ['–', '500 chars']]);
         });
 
-        it('omits a bucket total whose value is zero', async () => {
+        it('shows a dash for a bucket total whose value is zero', async () => {
             vi.mocked(api.getTimelineBuckets).mockImplementation(async request => createBucketPage(request, [
                 createBucket({ key: '2024-03', startDate: '2024-03-01', loggedMinutes: 60, loggedCharacters: 0 }),
                 createBucket({ key: '2024-02', startDate: '2024-02-01', loggedMinutes: 0, loggedCharacters: 4200 }),
@@ -755,9 +772,9 @@ describe('TimelineView', () => {
             await vi.waitFor(() => expect(container.querySelectorAll('.timeline-bucket-row')).toHaveLength(3));
 
             const totalsByRow = Array.from(container.querySelectorAll('.timeline-bucket-row'))
-                .map(row => Array.from(row.querySelectorAll('.timeline-bucket-total'))
+                .map(row => Array.from(row.querySelectorAll('.timeline-bucket-metric'))
                     .map(node => node.textContent));
-            expect(totalsByRow).toEqual([['1h'], ['4,200 chars logged'], []]);
+            expect(totalsByRow).toEqual([['1h 00m', '–'], ['–', '4,200 chars'], ['–', '–']]);
         });
 
         it('renders no milestone name list on a bucket row', async () => {
@@ -772,9 +789,68 @@ describe('TimelineView', () => {
 
             const row = container.querySelector('.timeline-bucket-row');
             expect(row?.querySelector('.timeline-bucket-milestones')).toBeNull();
-            const pipLabels = Array.from(row?.querySelectorAll('.timeline-bucket-pip') ?? [])
-                .map(node => node.textContent);
-            expect(pipLabels).toContain('3 milestones');
+            const kindLabels = Array.from(row?.querySelectorAll('.timeline-bucket-kind') ?? [])
+                .map(node => node.getAttribute('title'));
+            expect(kindLabels).toContain('3 milestones');
+        });
+
+        async function renderMonthBuckets(buckets: TimelineBucket[]): Promise<void> {
+            vi.mocked(api.getTimelineBuckets).mockImplementation(async request => createBucketPage(request, buckets));
+            const view = new TimelineView(container);
+            await renderAndLoad(view);
+            await zoomOutOnce(container);
+            await zoomOutOnce(container);
+            await vi.waitFor(() => expect(container.querySelectorAll('.timeline-bucket-row')).toHaveLength(buckets.length));
+        }
+
+        function createHighlight(overrides: Partial<TimelineBucketHighlight> = {}): TimelineBucketHighlight {
+            return {
+                mediaId: 7,
+                mediaTitle: 'Novel A',
+                mediaVariant: '',
+                coverImage: 'cover.png',
+                ...overrides,
+            };
+        }
+
+        it('shows every kind on a bucket row in a fixed order and marks the zero counts', async () => {
+            await renderMonthBuckets([
+                createBucket({ startedCount: 2, finishedCount: 0, pausedCount: 1, droppedCount: 0, milestoneCount: 0 }),
+            ]);
+
+            const tiles = Array.from(container.querySelectorAll('.timeline-bucket-kind'));
+            expect(tiles.map(tile => tile.getAttribute('title'))).toEqual([
+                '2 started',
+                '0 completed',
+                '1 paused',
+                '0 dropped',
+                '0 milestones',
+            ]);
+            expect(tiles.map(tile => tile.classList.contains('is-zero'))).toEqual([false, true, false, true, true]);
+        });
+
+        it('opens the media from a bucket cover', async () => {
+            const navigate = vi.fn();
+            globalThis.addEventListener('app-navigate', navigate);
+            await renderMonthBuckets([
+                createBucket({ highlights: [createHighlight({ mediaId: 7 })], distinctMediaCount: 1 }),
+            ]);
+
+            container.querySelector<HTMLButtonElement>('button.timeline-bucket-cover')!.click();
+
+            expect((navigate.mock.calls[0][0] as CustomEvent).detail).toEqual({ view: 'media', focusMediaId: 7 });
+            globalThis.removeEventListener('app-navigate', navigate);
+        });
+
+        it('renders a No Image tile for a bucket title without a cover', async () => {
+            await renderMonthBuckets([
+                createBucket({ highlights: [createHighlight({ coverImage: '' })], distinctMediaCount: 1 }),
+            ]);
+
+            const tile = container.querySelector('.timeline-bucket-cover');
+            expect(tile?.classList.contains('is-empty')).toBe(true);
+            expect(tile?.textContent?.trim()).toBe('No Image');
+            expect(tile?.hasAttribute('data-cover-ref')).toBe(false);
         });
 
         it('scrolls back to the top when the zoom level changes', async () => {
