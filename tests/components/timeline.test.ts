@@ -253,9 +253,9 @@ describe('TimelineView', () => {
         expect(Array.from(container.querySelectorAll('.timeline-month-label')).map(node => node.textContent?.trim()))
             .toEqual(['March 2024', 'February 2024', 'January 2024']);
         const text = container.textContent?.replaceAll(/\s+/g, ' ') ?? '';
-        expect(text).toContain('Finished reading');
-        expect(text).toContain('Reached "Chapter 10"');
-        expect(text).toContain('Put Game B on pause');
+        expect(text).toContain('Completed Novel A');
+        expect(text).toContain('Milestone Novel A Chapter 10');
+        expect(text).toContain('Paused Game B');
         expect(text).toContain('Dropped Show C');
         expect(text).toContain('5h');
     });
@@ -317,9 +317,83 @@ describe('TimelineView', () => {
         await vi.waitFor(() => expect(container.querySelectorAll('.timeline-entry')).toHaveLength(2));
 
         const text = container.textContent?.replaceAll(/\s+/g, ' ') ?? '';
-        expect(text).toContain('Horimiya — Manga');
-        expect(text).toContain('Unique title');
-        expect(text).not.toContain('Unique title — Light Novel');
+        expect(text).toContain('Horimiya Manga');
+        expect(text).toContain('Unique title Light Novel');
+    });
+
+    it('renders the detailed card title as a heading button carrying the full title', async () => {
+        vi.mocked(api.getTimelinePage).mockImplementation(async request => createPage(request, [
+            createEvent({ mediaTitle: 'A very long novel title' }),
+        ]));
+
+        const view = new TimelineView(container);
+        await renderAndLoad(view);
+        await vi.waitFor(() => expect(container.querySelectorAll('article')).toHaveLength(1));
+
+        const titleButton = container.querySelector<HTMLButtonElement>('article h3 button');
+        expect(titleButton?.title).toBe('A very long novel title');
+        expect(titleButton?.textContent?.trim()).toBe('A very long novel title');
+    });
+
+    it('renders no lifecycle sentence on detailed cards', async () => {
+        const view = new TimelineView(container);
+        await renderAndLoad(view);
+        await vi.waitFor(() => expect(container.querySelectorAll('article')).toHaveLength(5));
+
+        const text = container.textContent?.replaceAll(/\s+/g, ' ') ?? '';
+        expect(text).not.toContain('Finished reading');
+        expect(text).not.toContain('Reached "');
+        expect(text).not.toContain('on pause');
+    });
+
+    it('renders the variant and the milestone name as their own lines with full text in a tooltip', async () => {
+        vi.mocked(api.getTimelinePage).mockImplementation(async request => createPage(request, [
+            createEvent({ kind: 'milestone', mediaVariant: 'Web', milestoneName: 'Chapter 10' }),
+        ]));
+
+        const view = new TimelineView(container);
+        await renderAndLoad(view);
+        await vi.waitFor(() => expect(container.querySelectorAll('article')).toHaveLength(1));
+
+        const lines = Array.from(container.querySelectorAll<HTMLParagraphElement>('article p[title]'));
+        expect(lines.map(line => line.title)).toEqual(['Web', 'Chapter 10']);
+        expect(lines.map(line => line.textContent?.trim())).toEqual(['Web', 'Chapter 10']);
+        expect(lines.every(line => line.querySelector('svg') !== null)).toBe(true);
+    });
+
+    it('renders the detailed card stats as labelled rows keyed by stat', async () => {
+        vi.mocked(api.getTimelinePage).mockImplementation(async request => createPage(request, [createEvent()]));
+
+        const view = new TimelineView(container);
+        await renderAndLoad(view);
+        await vi.waitFor(() => expect(container.querySelectorAll('article')).toHaveLength(1));
+
+        const rows = Array.from(container.querySelectorAll<HTMLElement>('article dl [data-timeline-stat]'));
+        expect(rows.map(row => [
+            row.dataset.timelineStat,
+            row.querySelector('dt')?.textContent,
+            row.querySelector('dd')?.textContent,
+        ])).toEqual([
+            ['date', 'Date', 'Mar 15, 2024'],
+            ['time', 'Time', '5h'],
+            ['characters', 'Characters', '12,000'],
+            ['type', 'Type', 'Novel'],
+        ]);
+    });
+
+    it('renders a no-image placeholder that the cover loader ignores when the media has no cover', async () => {
+        vi.mocked(api.getTimelinePage).mockImplementation(async request => createPage(request, [
+            createEvent({ coverImage: '' }),
+        ]));
+
+        const view = new TimelineView(container);
+        await renderAndLoad(view);
+        await vi.waitFor(() => expect(container.querySelectorAll('article')).toHaveLength(1));
+
+        const article = container.querySelector('article');
+        expect(article?.textContent).toContain('No Image');
+        expect(article?.querySelector('[data-cover-ref]')).toBeNull();
+        expect(coverMocks.load).not.toHaveBeenCalled();
     });
 
     it('debounces search and sends year and kind filters to the backend', async () => {
