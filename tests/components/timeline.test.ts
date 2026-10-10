@@ -332,7 +332,7 @@ describe('TimelineView', () => {
         await vi.waitFor(() => expect(container.querySelectorAll('article')).toHaveLength(1));
 
         const titleButton = container.querySelector<HTMLButtonElement>('article h3 button');
-        expect(titleButton?.title).toBe('A very long novel title');
+        expect(titleButton?.querySelector<HTMLElement>('.timeline-card-title-text')?.title).toBe('A very long novel title');
         expect(titleButton?.textContent?.trim()).toBe('A very long novel title');
     });
 
@@ -959,7 +959,7 @@ describe('TimelineView', () => {
             await zoomOutOnce(container);
             await vi.waitFor(() => expect(container.querySelectorAll('.timeline-compact-row')).toHaveLength(1));
 
-            expect(container.querySelector('.timeline-compact-row .timeline-media-link')?.getAttribute('title'))
+            expect(container.querySelector('.timeline-compact-row .timeline-compact-title-text')?.getAttribute('title'))
                 .toBe('Novel A');
         });
 

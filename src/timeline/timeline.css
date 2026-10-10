@@ -588,6 +588,13 @@
     border-radius: var(--radius-lg);
   }
 
+  .timeline-card-title-text,
+  .timeline-card-subline {
+    position: relative;
+    z-index: 2;
+    cursor: pointer;
+  }
+
   .timeline-card:hover {
     border-color: color-mix(in srgb, var(--timeline-accent) 60%, var(--border-color) 40%);
     box-shadow: var(--shadow-md);
@@ -790,6 +797,13 @@
     inset: 0;
     z-index: 1;
     border-radius: var(--radius-md);
+  }
+
+  .timeline-compact-title-text,
+  .timeline-compact-subline {
+    position: relative;
+    z-index: 2;
+    cursor: pointer;
   }
 
   .timeline-compact-card:hover {

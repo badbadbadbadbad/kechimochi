@@ -139,6 +139,7 @@ const NO_COVER_LABEL = 'No Image';
 const SUBLINE_ICON_SIZE_PX = 14;
 const EMPTY_METRIC_LABEL = '–';
 const SMALL_TIMELINE_MEDIA_QUERY = '(max-width: 1024px)';
+const FINE_POINTER_MEDIA_QUERY = '(hover: hover) and (pointer: fine)';
 const TIMELINE_PAGE_SIZE = 40;
 const TIMELINE_SEARCH_DEBOUNCE_MS = 180;
 const COVER_PRELOAD_ROOT_MARGIN = '420px 0px';
@@ -858,13 +859,17 @@ export class TimelineView extends Component<TimelineState> {
                                 type="button"
                                 class="timeline-media-link"
                                 data-media-id="${event.mediaId}"
-                                title="${escapeHTML(event.mediaTitle)}"
-                            ><span class="timeline-card-title-text">${escapeHTML(event.mediaTitle)}</span></button>
+                            ><span class="timeline-card-title-text" title="${escapeHTML(event.mediaTitle)}">${escapeHTML(event.mediaTitle)}</span></button>
                         </h3>
-                        ${variantLabel === null ? '' : this.renderSubline('variant', variantLabel, 'timeline-card-subline')}
+                        ${variantLabel === null ? '' : this.renderSubline(event.mediaId, 'variant', variantLabel, 'timeline-card-subline')}
                         ${
                             event.kind === 'milestone'
-                                ? this.renderSubline('milestone', event.milestoneName ?? MILESTONE_FALLBACK_NAME, 'timeline-card-subline')
+                                ? this.renderSubline(
+                                      event.mediaId,
+                                      'milestone',
+                                      event.milestoneName ?? MILESTONE_FALLBACK_NAME,
+                                      'timeline-card-subline',
+                                  )
                                 : ''
                         }
                     </div>
@@ -886,10 +891,10 @@ export class TimelineView extends Component<TimelineState> {
         `;
     }
 
-    private renderSubline(sublineKind: TimelineSublineKind, text: string, className: string): string {
+    private renderSubline(mediaId: number, sublineKind: TimelineSublineKind, text: string, className: string): string {
         const iconMarkup = sublineKind === 'variant' ? FORK : FLAG;
         return `
-            <p class="${className} is-${sublineKind}" title="${escapeHTML(text)}">
+            <p class="${className} is-${sublineKind}" data-media-id="${mediaId}" title="${escapeHTML(text)}">
                 <span class="${className}-icon" aria-hidden="true">${renderIcon(iconMarkup, SUBLINE_ICON_SIZE_PX)}</span>
                 <span class="${className}-text">${escapeHTML(text)}</span>
             </p>
@@ -914,8 +919,7 @@ export class TimelineView extends Component<TimelineState> {
                             type="button"
                             class="timeline-media-link timeline-compact-link"
                             data-media-id="${event.mediaId}"
-                            title="${escapeHTML(event.mediaTitle)}"
-                        ><span class="timeline-compact-title-text">${escapeHTML(event.mediaTitle)}</span></button>
+                        ><span class="timeline-compact-title-text" title="${escapeHTML(event.mediaTitle)}">${escapeHTML(event.mediaTitle)}</span></button>
                         ${this.renderCompactSublines(event, variantLabel)}
                     </div>
                     ${this.renderMetric(
@@ -933,9 +937,14 @@ export class TimelineView extends Component<TimelineState> {
 
     private renderCompactSublines(event: TimelineEvent, variantLabel: string | null): string {
         const sublines = [
-            variantLabel === null ? '' : this.renderSubline('variant', variantLabel, 'timeline-compact-subline'),
+            variantLabel === null ? '' : this.renderSubline(event.mediaId, 'variant', variantLabel, 'timeline-compact-subline'),
             event.kind === 'milestone'
-                ? this.renderSubline('milestone', event.milestoneName ?? MILESTONE_FALLBACK_NAME, 'timeline-compact-subline')
+                ? this.renderSubline(
+                      event.mediaId,
+                      'milestone',
+                      event.milestoneName ?? MILESTONE_FALLBACK_NAME,
+                      'timeline-compact-subline',
+                  )
                 : '',
         ].join('');
         if (sublines.length === 0) {
@@ -1159,6 +1168,15 @@ export class TimelineView extends Component<TimelineState> {
             button.addEventListener('click', () => {
                 const mediaId = Number.parseInt(button.dataset.mediaId || '', 10);
                 if (Number.isFinite(mediaId)) {
+                    this.navigateToMedia(mediaId);
+                }
+            });
+        });
+
+        root.querySelectorAll<HTMLElement>('.timeline-card-subline, .timeline-compact-subline').forEach(subline => {
+            subline.addEventListener('click', () => {
+                const mediaId = Number.parseInt(subline.dataset.mediaId || '', 10);
+                if (Number.isFinite(mediaId) && this.isFinePointerLayout()) {
                     this.navigateToMedia(mediaId);
                 }
             });
@@ -1392,6 +1410,14 @@ export class TimelineView extends Component<TimelineState> {
         }
 
         return globalThis.matchMedia(SMALL_TIMELINE_MEDIA_QUERY).matches;
+    }
+
+    private isFinePointerLayout(): boolean {
+        if (typeof globalThis.matchMedia !== 'function') {
+            return false;
+        }
+
+        return globalThis.matchMedia(FINE_POINTER_MEDIA_QUERY).matches;
     }
 
     private isWaveSuppressed(): boolean {
