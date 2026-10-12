@@ -949,7 +949,7 @@ a {
 
 
 /* Forms & Inputs */
-input, select, .multi-select-trigger, .activity-episode-duration-button {
+input, select, .multi-select-trigger, .field-trigger {
   background-color: var(--bg-dark);
   color: var(--text-primary);
   border: 1px solid var(--border-color);
@@ -971,22 +971,38 @@ input:focus {
   display: flex;
   align-items: center;
   min-width: 0;
-  padding-inline: 5px;
-  padding-inline: calc((1lh + 2 * var(--inline-action-input-padding-block) - var(--inline-action-button-size)) / 2);
   font-size: 0.9rem;
   background-color: var(--bg-dark);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-sm);
 }
 
+.inline-action-field.has-inline-actions {
+  padding-inline: calc((1lh + 2 * var(--inline-action-input-padding-block) - var(--inline-action-button-size)) / 2);
+}
+
+@supports not (padding-inline: 1lh) {
+  .inline-action-field.has-inline-actions {
+    padding-inline: 5px;
+  }
+}
+
 .inline-action-field-input {
   flex: 1 1 0;
   min-width: 0;
-  padding: var(--inline-action-input-padding-block) 0;
+  padding: var(--inline-action-input-padding-block) var(--field-padding-inline);
   border: none;
   border-radius: 0;
   background-color: transparent;
   cursor: text;
+}
+
+.has-inline-actions .inline-action-field-input {
+  padding-inline: 0.5rem;
+}
+
+.inline-action-button[hidden] {
+  display: none;
 }
 
 .inline-action-field-input:disabled {
@@ -1027,20 +1043,21 @@ input:focus {
 }
 
 .multi-select-trigger,
-.activity-episode-duration-button,
+.field-trigger,
 select:not(:where(.badge-select, #media-select)) {
   background-color: color-mix(in srgb, var(--bg-dark) 88%, transparent);
 }
 
 .multi-select-trigger:hover,
-.activity-episode-duration-button:hover,
+.field-trigger:hover,
 select:not(:where(.badge-select, #media-select)):hover {
   border-color: color-mix(in srgb, var(--accent-green) 34%, var(--border-color) 66%);
 }
 
 .multi-select-trigger:focus-visible,
-.activity-episode-duration-button:focus-visible,
+.field-trigger:focus-visible,
 .multi-select-trigger[aria-expanded='true'],
+.field-trigger[aria-expanded='true'],
 select:not(:where(.badge-select, #media-select)):focus-visible,
 select:not(:where(.badge-select, #media-select))[aria-expanded='true'] {
   outline: none;
@@ -1048,8 +1065,25 @@ select:not(:where(.badge-select, #media-select))[aria-expanded='true'] {
 }
 
 .multi-select-trigger[aria-expanded='true'],
+.field-trigger[aria-expanded='true'],
 select:not(:where(.badge-select, #media-select))[aria-expanded='true'] {
   background-color: color-mix(in srgb, var(--bg-card-hover) 82%, transparent);
+}
+
+.field-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-width: 0;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.field-trigger-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /*
@@ -1058,6 +1092,7 @@ select:not(:where(.badge-select, #media-select))[aria-expanded='true'] {
  * over 1px so they antialias softly. The multiselect's chevron span carries the same background.
  */
 .multi-select-trigger-chevron,
+.field-trigger-chevron,
 select:not(:where(.badge-select, #media-select)) {
   --chevron-tile: calc(var(--chevron-arm-length) * 0.7071);
   --chevron-band:
@@ -4734,78 +4769,154 @@ input:checked + .slider:before {
   }
 }
 
-.activity-date-picker-row {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.activity-date-row-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 1rem;
-}
-
-#activity-date-selection {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  font-style: italic;
-  white-space: nowrap;
-}
-
-.activity-episode-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.activity-episode-field[hidden] {
-  display: none;
-}
-
-.activity-episode-label {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-}
-
-.activity-episode-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-}
-
-.activity-episode-count {
-  font-variant-numeric: tabular-nums;
-  text-align: center;
-}
-
-.activity-episode-duration-button {
+.activity-modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
-  min-width: 0;
-  white-space: nowrap;
-  cursor: pointer;
+  gap: 1rem;
+  font-size: 1.17em;
 }
 
-.activity-episode-duration-suffix {
+.activity-modal-header h3 {
+  flex: 0 0 auto;
+  font-size: inherit;
+}
+
+.activity-modal-variant {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  max-width: 50%;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.activity-modal-variant[hidden] {
   display: none;
 }
 
-@media (max-width: 340px) {
-  .activity-episode-row {
-    grid-template-columns: 1fr;
-    gap: 0.5rem;
+.activity-modal-variant-icon {
+  display: inline-flex;
+  flex: none;
+}
+
+.activity-modal-variant-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.activity-modal-field[hidden] {
+  display: none;
+}
+
+.activity-modal-field select {
+  width: 100%;
+}
+
+.activity-modal-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.activity-modal-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.duration-hint-row {
+  margin-top: -0.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.activity-episode-duration-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.activity-episode-duration-hint[hidden] {
+  display: none;
+}
+
+.activity-date-slot {
+  display: contents;
+}
+
+.activity-date-panel {
+  --activity-date-panel-gap: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--activity-date-panel-gap);
+}
+
+.sheet-panel > .activity-date-panel {
+  flex-direction: column-reverse;
+  padding-block: calc(var(--activity-date-panel-gap) - var(--sheet-panel-padding-block));
+}
+
+.activity-date-panel[hidden] {
+  display: none;
+}
+
+.activity-notes-toggle,
+.activity-episode-duration-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.activity-notes-toggle:hover,
+.activity-episode-duration-link:hover {
+  color: var(--text-primary);
+}
+
+.activity-notes-toggle {
+  align-self: flex-start;
+  font-size: 0.85rem;
+}
+
+.activity-notes-toggle[hidden] {
+  display: none;
+}
+
+.activity-episode-duration-link {
+  gap: 0.25rem;
+}
+
+@media (max-width: 768px) {
+  .activity-modal-content {
+    padding: 1.25rem;
   }
 
-  .activity-episode-duration-prefix {
-    display: none;
+  .activity-modal-variant {
+    max-width: 40%;
   }
 
-  .activity-episode-duration-suffix {
-    display: inline;
+  .activity-amount-columns {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -4878,13 +4989,6 @@ input:checked + .slider:before {
 
   .heatmap-title-controls {
     gap: 0.35rem;
-  }
-
-  #mobile-date-field{
-    display: flex!important;
-  }
-  #desktop-date-field{
-    display: none!important;
   }
 }
 

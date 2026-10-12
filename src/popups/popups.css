@@ -84,7 +84,8 @@
   font-variant-numeric: tabular-nums;
 }
 
-.multi-select-trigger-chevron {
+.multi-select-trigger-chevron,
+.field-trigger-chevron {
   flex: 0 0 auto;
   width: calc(var(--chevron-tile) * 2);
   height: var(--chevron-tile);
@@ -93,7 +94,8 @@
 }
 
 .multi-select-panel,
-.select-popup {
+.select-popup,
+.sheet-panel {
   position: fixed;
   display: flex;
   flex-direction: column;
@@ -105,24 +107,41 @@
   z-index: 900;
 }
 
-.select-popup {
+.select-popup,
+.sheet-panel {
   z-index: 1100;
 }
 
-.multi-select-scrim {
+.multi-select-scrim,
+.sheet-scrim {
   position: fixed;
   inset: 0;
   z-index: 899;
   background: var(--scrim);
 }
 
-.multi-select-panel.is-sheet {
+.sheet-scrim {
+  z-index: 1099;
+}
+
+.sheet-panel {
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.sheet-panel:focus {
+  outline: none;
+}
+
+.multi-select-panel.is-sheet,
+.sheet-panel {
   right: 0;
   bottom: 0;
   left: 0;
   border-bottom: 0;
+  --sheet-panel-padding-block: 0.5rem;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  padding: 0.5rem 0.75rem calc(0.5rem + env(safe-area-inset-bottom));
+  padding: var(--sheet-panel-padding-block) 0.75rem calc(var(--sheet-panel-padding-block) + env(safe-area-inset-bottom));
 }
 
 .multi-select-panel.is-sheet .multi-select-options {

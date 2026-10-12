@@ -45,12 +45,20 @@ describe('duration_input.ts', () => {
             expect(getDurationMinutes()).toBe(0);
         });
 
+        it('should show only the compact duration when episodes can be counted', () => {
+            wireDurationInput(inputElement, hintElement, () => {}, { getEpisodeDurationMinutes: () => 24 });
+
+            setInputValue('72');
+
+            expect(hintElement.textContent).toBe('1h 12m');
+        });
+
         it('should count episodes with the given episode duration', () => {
             const { getDurationMinutes } = wireDurationInput(inputElement, hintElement, () => {}, { getEpisodeDurationMinutes: () => 24 });
 
             setInputValue('2ep 6m');
 
-            expect(hintElement.textContent).toBe('54 minutes');
+            expect(hintElement.textContent).toBe('54m');
             expect(getDurationMinutes()).toBe(54);
         });
 

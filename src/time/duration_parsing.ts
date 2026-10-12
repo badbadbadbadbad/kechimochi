@@ -13,8 +13,8 @@ const BARE_MINUTES_PATTERN = /^\d+$/;
 const UNIT_GROUP_PATTERN = /(\d{1,15})(ep|[dhms])/gi;
 const WHITESPACE_PATTERN = /\s+/;
 
-export const DURATION_INPUT_PLACEHOLDER = 'e.g. 90 or 1h30m';
-export const EPISODE_DURATION_INPUT_PLACEHOLDER = 'e.g. 3ep or 1h30m';
+export const DURATION_INPUT_PLACEHOLDER = 'e.g. 1h30m';
+export const EPISODE_DURATION_INPUT_PLACEHOLDER = 'e.g. 2ep 1h';
 
 export const DURATION_INPUT_TOOLTIP =
     'Plain numbers are parsed as minutes ("35" means 35 minutes).\n' +

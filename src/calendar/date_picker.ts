@@ -38,12 +38,6 @@ export function normalizeWeekStartDay(value: number | string | null | undefined)
     return parsed;
 }
 
-export function supportsNativeMonthInput(): boolean {
-    const input = document.createElement('input');
-    input.type = 'month';
-    return input.type === 'month';
-}
-
 const WEEKDAY_ABBREVIATIONS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
 const WEEK_COLUMNS = 7;

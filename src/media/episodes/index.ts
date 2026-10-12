@@ -4,7 +4,7 @@ export {
     isEpisodicMedia,
     resolveEpisodeDurationMinutes,
 } from './episode_duration';
-export { MAX_EPISODE_COUNT_DIGITS, wireEpisodeStepper } from './episode_stepper';
+export { wireEpisodeStepper } from './episode_stepper';
 export type { EpisodeStepperElements } from './episode_stepper';
 export { showEpisodeDurationOverrideModal } from './episode_duration_modal';
 export type { EpisodeDurationOverrideChoice } from './episode_duration_modal';

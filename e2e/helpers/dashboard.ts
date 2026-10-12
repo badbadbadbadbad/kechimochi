@@ -1,7 +1,7 @@
 /**
  * Dashboard-specific helpers.
  */
-import { clickTopmostOverlayChild, confirmAction, performActivityEdit, safeClick, getTopmostVisibleOverlay, waitForNoActiveOverlays, selectActivityDate } from './common.js';
+import { clickTopmostOverlayChild, confirmAction, performActivityEdit, safeClick, getTopmostVisibleOverlay, waitForNoActiveOverlays, selectActivityDate, setActivityNotes } from './common.js';
 import { pressEnter, setText, setSelect } from './form-controls.js';
 
 export function dashboardCardSelector(id: string): string {
@@ -122,7 +122,7 @@ export async function logActivity(
     }
 
     if (notes !== undefined && await overlay.$('#activity-notes').isExisting()) {
-        await setText('#activity-notes', notes);
+        await setActivityNotes(notes);
     }
 
     if (date) {

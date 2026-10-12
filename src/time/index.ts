@@ -30,6 +30,7 @@ export {
     isContainedInBucket,
     formatReducedDate,
     formatLogDate,
+    formatLogDateRelativeTo,
     formatUtcIsoDate,
     utcDateFromParts,
     localTodayAnchor,

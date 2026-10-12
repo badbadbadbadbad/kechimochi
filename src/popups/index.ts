@@ -11,3 +11,5 @@ export type {
     MultiSelectSummarySource,
 } from './multi_select';
 export { installSelectPopups, openSelectPopup } from './select';
+export { isSheetLayout, openSheet, SHEET_LAYOUT_MEDIA_QUERY } from './sheet';
+export type { SheetHandle, SheetOptions } from './sheet';

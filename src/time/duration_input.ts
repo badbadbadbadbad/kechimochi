@@ -32,6 +32,10 @@ export interface DurationInputOptions {
     emptyInputMinutes?: number;
 }
 
+function describeMinutes(minutes: number, canCountEpisodes: boolean): string {
+    return canCountEpisodes ? formatCompactDuration(minutes) : describeParsedDuration(minutes);
+}
+
 /**
  * Wires a free-form duration input to a hint element: parses on every keystroke, shows a
  * live "parsed to" hint, and calls `onChange` after each edit so the caller can decide
@@ -48,7 +52,10 @@ export function wireDurationInput(
     inputElement: HTMLInputElement,
     hintElement: HTMLElement,
     onChange: () => void,
-    { getEpisodeDurationMinutes = NO_EPISODE_DURATION, emptyInputMinutes = 0 }: DurationInputOptions = {},
+    {
+        getEpisodeDurationMinutes = NO_EPISODE_DURATION,
+        emptyInputMinutes = 0,
+    }: DurationInputOptions = {},
 ): { getDurationMinutes: () => number | null; refresh: () => void } {
     let pendingErrorTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -71,12 +78,13 @@ export function wireDurationInput(
     const update = () => {
         cancelPendingError();
 
-        const result = parseCurrentValue();
+        const episodeDurationMinutes = getEpisodeDurationMinutes();
+        const result = parseDuration(inputElement.value, episodeDurationMinutes);
 
         if (result.status === 'parsed') {
             const isEmptyInput = inputElement.value.trim().length === 0;
             hintElement.hidden = false;
-            hintElement.textContent = describeParsedDuration(isEmptyInput ? emptyInputMinutes : result.minutes);
+            hintElement.textContent = describeMinutes(isEmptyInput ? emptyInputMinutes : result.minutes, episodeDurationMinutes !== null);
             hintElement.classList.remove(DURATION_HINT_INVALID_CLASS);
             return;
         }
