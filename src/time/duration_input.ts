@@ -4,6 +4,7 @@ import { formatCompactDuration } from './formatting';
 const DURATION_HINT_INVALID_CLASS = 'is-invalid';
 const DURATION_HINT_UNRECOGNIZED_TEXT = 'Unrecognized duration. Try 90, 1h30m, or 2h 15.';
 const DURATION_HINT_TOO_LARGE_TEXT = 'That duration is too large.';
+const DURATION_HINT_EPISODE_DURATION_UNKNOWN_TEXT = 'Pick an anime from the suggestions to log episodes.';
 const DURATION_ERROR_DELAY_MS = 600;
 
 function describeParsedDuration(minutes: number): string {
@@ -14,8 +15,21 @@ function describeParsedDuration(minutes: number): string {
 
 type DurationParseFailure = Exclude<DurationParseResult, { status: 'parsed' }>;
 
+const ERROR_MESSAGE_BY_FAILURE: Record<DurationParseFailure['status'], string> = {
+    unrecognized: DURATION_HINT_UNRECOGNIZED_TEXT,
+    tooLarge: DURATION_HINT_TOO_LARGE_TEXT,
+    episodeDurationUnknown: DURATION_HINT_EPISODE_DURATION_UNKNOWN_TEXT,
+};
+
 function errorMessageFor(failure: DurationParseFailure): string {
-    return failure.status === 'tooLarge' ? DURATION_HINT_TOO_LARGE_TEXT : DURATION_HINT_UNRECOGNIZED_TEXT;
+    return ERROR_MESSAGE_BY_FAILURE[failure.status];
+}
+
+const NO_EPISODE_DURATION = (): number | null => null;
+
+export interface DurationInputOptions {
+    getEpisodeDurationMinutes?: () => number | null;
+    emptyInputMinutes?: number;
 }
 
 /**
@@ -33,9 +47,12 @@ function errorMessageFor(failure: DurationParseFailure): string {
 export function wireDurationInput(
     inputElement: HTMLInputElement,
     hintElement: HTMLElement,
-    onChange: () => void
-): { getDurationMinutes: () => number | null } {
+    onChange: () => void,
+    { getEpisodeDurationMinutes = NO_EPISODE_DURATION, emptyInputMinutes = 0 }: DurationInputOptions = {},
+): { getDurationMinutes: () => number | null; refresh: () => void } {
     let pendingErrorTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const parseCurrentValue = () => parseDuration(inputElement.value, getEpisodeDurationMinutes());
 
     const cancelPendingError = () => {
         if (pendingErrorTimer !== undefined) {
@@ -54,18 +71,12 @@ export function wireDurationInput(
     const update = () => {
         cancelPendingError();
 
-        if (inputElement.value.trim().length === 0) {
-            hintElement.textContent = '';
-            hintElement.hidden = true;
-            hintElement.classList.remove(DURATION_HINT_INVALID_CLASS);
-            return;
-        }
-
-        const result = parseDuration(inputElement.value);
+        const result = parseCurrentValue();
 
         if (result.status === 'parsed') {
+            const isEmptyInput = inputElement.value.trim().length === 0;
             hintElement.hidden = false;
-            hintElement.textContent = describeParsedDuration(result.minutes);
+            hintElement.textContent = describeParsedDuration(isEmptyInput ? emptyInputMinutes : result.minutes);
             hintElement.classList.remove(DURATION_HINT_INVALID_CLASS);
             return;
         }
@@ -77,7 +88,7 @@ export function wireDurationInput(
     const flushError = () => {
         if (inputElement.value.trim().length === 0) return;
 
-        const result = parseDuration(inputElement.value);
+        const result = parseCurrentValue();
         if (result.status === 'parsed') return;
 
         showError(errorMessageFor(result));
@@ -92,8 +103,9 @@ export function wireDurationInput(
 
     return {
         getDurationMinutes: () => {
-            const result = parseDuration(inputElement.value);
+            const result = parseCurrentValue();
             return result.status === 'parsed' ? result.minutes : null;
         },
+        refresh: update,
     };
 }

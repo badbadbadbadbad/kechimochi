@@ -27,13 +27,31 @@ describe('duration_input.ts', () => {
     const isShowingError = () => hintElement.classList.contains('is-invalid');
 
     describe('wireDurationInput', () => {
-        it('should clear the hint and report zero minutes for empty input', () => {
+        it('should show a zero minutes hint and report zero minutes for empty input', () => {
             const { getDurationMinutes } = wireDurationInput(inputElement, hintElement, () => {});
 
             setInputValue('');
 
-            expect(hintElement.textContent).toBe('');
+            expect(hintElement.textContent).toBe('0 minutes');
             expect(getDurationMinutes()).toBe(0);
+        });
+
+        it('should describe empty input with the given empty input minutes', () => {
+            const { getDurationMinutes } = wireDurationInput(inputElement, hintElement, () => {}, { emptyInputMinutes: 24 });
+
+            setInputValue('');
+
+            expect(hintElement.textContent).toBe('24 minutes');
+            expect(getDurationMinutes()).toBe(0);
+        });
+
+        it('should count episodes with the given episode duration', () => {
+            const { getDurationMinutes } = wireDurationInput(inputElement, hintElement, () => {}, { getEpisodeDurationMinutes: () => 24 });
+
+            setInputValue('2ep 6m');
+
+            expect(hintElement.textContent).toBe('54 minutes');
+            expect(getDurationMinutes()).toBe(54);
         });
 
         it('should show the parsed duration hint for valid input', () => {

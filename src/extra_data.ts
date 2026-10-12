@@ -1,4 +1,5 @@
 import { EXTRA_FIELD_LABELS } from './constants';
+import { parseDuration } from './time/duration_parsing';
 
 export function findExtraDataKey(extraData: Record<string, string>, key: string): string | undefined {
     const normalizedKey = key.toLowerCase();
@@ -119,4 +120,12 @@ export function getReadingSpeedFromExtraData(extraData: Record<string, string>):
 
     const parsedValue = Number.parseInt(rawValue.replaceAll(/[^\d-]/g, ''), 10);
     return Number.isNaN(parsedValue) || parsedValue <= 0 ? null : parsedValue;
+}
+
+export function getEpisodeDurationFromExtraData(extraData: Record<string, string>): number | null {
+    const rawValue = getExtraDataValue(extraData, EXTRA_FIELD_LABELS.EPISODE_DURATION);
+    if (!rawValue) return null;
+
+    const parsedDuration = parseDuration(rawValue);
+    return parsedDuration.status === 'parsed' && parsedDuration.minutes > 0 ? parsedDuration.minutes : null;
 }

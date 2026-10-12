@@ -949,7 +949,7 @@ a {
 
 
 /* Forms & Inputs */
-input, select, .multi-select-trigger {
+input, select, .multi-select-trigger, .activity-episode-duration-button {
   background-color: var(--bg-dark);
   color: var(--text-primary);
   border: 1px solid var(--border-color);
@@ -965,17 +965,81 @@ input:focus {
   border-color: var(--accent-green);
 }
 
+.inline-action-field {
+  --inline-action-button-size: 1.5rem;
+  --inline-action-input-padding-block: 0.5rem;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding-inline: 5px;
+  padding-inline: calc((1lh + 2 * var(--inline-action-input-padding-block) - var(--inline-action-button-size)) / 2);
+  font-size: 0.9rem;
+  background-color: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+}
+
+.inline-action-field-input {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: var(--inline-action-input-padding-block) 0;
+  border: none;
+  border-radius: 0;
+  background-color: transparent;
+  cursor: text;
+}
+
+.inline-action-field-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.inline-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--inline-action-button-size);
+  height: var(--inline-action-button-size);
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background-color: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.inline-action-button:hover:not(:disabled),
+.inline-action-button:active:not(:disabled) {
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-card-hover);
+}
+
+.inline-action-button:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: -2px;
+}
+
+.inline-action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .multi-select-trigger,
+.activity-episode-duration-button,
 select:not(:where(.badge-select, #media-select)) {
   background-color: color-mix(in srgb, var(--bg-dark) 88%, transparent);
 }
 
 .multi-select-trigger:hover,
+.activity-episode-duration-button:hover,
 select:not(:where(.badge-select, #media-select)):hover {
   border-color: color-mix(in srgb, var(--accent-green) 34%, var(--border-color) 66%);
 }
 
 .multi-select-trigger:focus-visible,
+.activity-episode-duration-button:focus-visible,
 .multi-select-trigger[aria-expanded='true'],
 select:not(:where(.badge-select, #media-select)):focus-visible,
 select:not(:where(.badge-select, #media-select))[aria-expanded='true'] {
@@ -4688,6 +4752,96 @@ input:checked + .slider:before {
   color: var(--text-secondary);
   font-style: italic;
   white-space: nowrap;
+}
+
+.activity-episode-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.activity-episode-field[hidden] {
+  display: none;
+}
+
+.activity-episode-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.activity-episode-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.activity-episode-count {
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.activity-episode-duration-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-width: 0;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.activity-episode-duration-suffix {
+  display: none;
+}
+
+@media (max-width: 340px) {
+  .activity-episode-row {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .activity-episode-duration-prefix {
+    display: none;
+  }
+
+  .activity-episode-duration-suffix {
+    display: inline;
+  }
+}
+
+.episode-duration-modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-top: 1rem;
+}
+
+.episode-duration-modal-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.episode-duration-modal-input {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-dark);
+  color: var(--text-primary);
+}
+
+.episode-duration-modal-note {
+  margin: 0.3rem 0 0;
+  font-size: 0.8rem;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.episode-duration-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1.5rem;
 }
 
 @media (max-width: 750px) {

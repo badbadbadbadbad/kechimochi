@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, with one section per released version.
 
 ## [Unreleased]
 
+### Added
+ - Anime can be logged in episodes now. The default episode length is 24 minutes (and can be overridden on a per-anime basis.)
+
 ### Changed
  - Selects now match multiselects through a forced Kechimochi theme. Mobile keeps its native picker.
  - Characters fields in the log and milestone modals start empty instead of 0 and accept only digits.

@@ -239,9 +239,14 @@ export function createCancelableOverlay(onDismiss: () => void, options: { closeO
 
     if (options.closeOnEscape) {
         const handleEscape = (event: KeyboardEvent) => {
-            // A focused control with its popup open (e.g. a select) owns Escape; this window-capture
-            // listener would otherwise run first and dismiss the whole modal instead.
-            if (event.key === 'Escape' && document.activeElement?.getAttribute('aria-expanded') !== 'true') {
+            // A focused control with its popup open (e.g. a select), or focus inside something layered
+            // above this overlay (a popup panel appended to body later, e.g. a multiselect), owns
+            // Escape; this window-capture listener would otherwise run first and dismiss the whole modal.
+            const activeElement = document.activeElement;
+            const isFocusInLaterLayer = activeElement !== null
+                && !overlay.contains(activeElement)
+                && Boolean(overlay.compareDocumentPosition(activeElement) & Node.DOCUMENT_POSITION_FOLLOWING);
+            if (event.key === 'Escape' && activeElement?.getAttribute('aria-expanded') !== 'true' && !isFocusInLaterLayer) {
                 event.preventDefault();
                 event.stopPropagation();
                 dismiss();

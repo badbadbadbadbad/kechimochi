@@ -140,6 +140,23 @@ export async function logActivity(
     await waitForActivitySubmissionResult();
 }
 
+export async function logActivityWithEpisodes(title: string, episodeCount: number, date: string): Promise<void> {
+    const overlay = await openActivityFormWithAmounts(title, '', '0');
+
+    const incrementButton = overlay.$('button[aria-label="Add one episode"]');
+    await incrementButton.waitForClickable({ timeout: 5000 });
+    for (let episodeIndex = 0; episodeIndex < episodeCount; episodeIndex++) {
+        await incrementButton.click();
+    }
+
+    await selectActivityDate(date);
+
+    const submitButton = overlay.$('#add-activity-form button[type="submit"]');
+    await submitButton.waitForClickable({ timeout: 5000 });
+    await submitButton.click();
+    await waitForActivitySubmissionResult();
+}
+
 /**
  * Gets a numeric value from a dashboard stat element.
  */

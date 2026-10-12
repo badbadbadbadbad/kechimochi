@@ -18,6 +18,8 @@ import { escapeHTML, escapeAttribute } from './html';
 import {
     DURATION_INPUT_PLACEHOLDER,
     DURATION_INPUT_TOOLTIP,
+    EPISODE_DURATION_INPUT_PLACEHOLDER,
+    EPISODE_DURATION_INPUT_TOOLTIP,
     wireDurationInput,
     canonicalAnchor,
     formatLogDate,
@@ -37,6 +39,9 @@ import {
     formatMissingInputsMessage,
     syncConfirmButton,
 } from './log_entry_validation';
+import { MAX_EPISODE_COUNT_DIGITS, resolveEpisodeDurationMinutes, wireEpisodeStepper } from './media/episodes';
+import { setEpisodeDurationOverride } from './media/media_actions';
+import { MINUS, PENCIL, PLUS, renderIcon } from './icons';
 
 type ActivityType = typeof ACTIVITY_TYPES[number];
 
@@ -195,7 +200,8 @@ export async function showLogActivityModal(prefillMediaId?: number, editLog?: Ac
     ]);
     const weekStartDay = normalizeWeekStartDay(weekStartDaySetting);
     return new Promise((resolve) => {
-        const baseHandle = createCancelableOverlay(() => resolve(false), { closeOnEscape: true });
+        let hasSavedMediaChange = false;
+        const baseHandle = createCancelableOverlay(() => resolve(hasSavedMediaChange), { closeOnEscape: true });
         const { overlay } = baseHandle;
         let suggestionHideTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
         const cleanup = () => {
@@ -252,6 +258,20 @@ export async function showLogActivityModal(prefillMediaId?: number, editLog?: Ac
                         <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.5rem;">
                             <label style="font-size: 0.85rem; color: var(--text-secondary);">Characters</label>
                             <input type="text" id="activity-characters" inputmode="numeric" autocomplete="off" placeholder="${escapeAttribute(COUNT_INPUT_PLACEHOLDER)}" value="${editLog?.characters ? String(editLog.characters) : ''}" style="background: var(--bg-dark); color: var(--text-primary); border: 1px solid var(--border-color); padding: 0.5rem; border-radius: var(--radius-sm); width: 100%;" />
+                        </div>
+                    </div>
+                    <div id="activity-episode-field" class="activity-episode-field" role="group" aria-labelledby="activity-episode-label" hidden>
+                        <label id="activity-episode-label" class="activity-episode-label">Episodes</label>
+                        <div class="activity-episode-row">
+                            <div class="inline-action-field activity-episode-count-field">
+                                <button type="button" id="activity-episode-decrement" class="inline-action-button" aria-label="Remove one episode">${renderIcon(MINUS)}</button>
+                                <input type="text" id="activity-episode-count" class="inline-action-field-input activity-episode-count" aria-labelledby="activity-episode-label" inputmode="numeric" autocomplete="off" maxlength="${MAX_EPISODE_COUNT_DIGITS}" placeholder="–" />
+                                <button type="button" id="activity-episode-increment" class="inline-action-button" aria-label="Add one episode">${renderIcon(PLUS)}</button>
+                            </div>
+                            <button type="button" id="activity-episode-edit" class="activity-episode-duration-button" aria-label="Change episode duration" title="Change episode duration">
+                                <span><span class="activity-episode-duration-prefix">× </span><span id="activity-episode-duration-value"></span><span class="activity-episode-duration-suffix"> per episode</span></span>
+                                ${renderIcon(PENCIL)}
+                            </button>
                         </div>
                     </div>
                     <div style="display: flex; gap: 1rem; width: 100%;">
@@ -441,11 +461,49 @@ export async function showLogActivityModal(prefillMediaId?: number, editLog?: Ac
             return missingInputs;
         };
         const syncSubmitButton = () => syncConfirmButton(submitButton, listMissingInputs());
-        const { getDurationMinutes } = wireDurationInput(durationInput, durationHint, syncSubmitButton);
+        const getEpisodeContextMedia = (): (Media & { id: number }) | undefined => {
+            if (editLog) return mediaById.get(editLog.media_id);
+            const media = selectedMediaId === null ? undefined : mediaById.get(selectedMediaId);
+            return media && titleInput.value.trim() === media.title ? media : undefined;
+        };
+        const getEpisodeDurationMinutes = () => resolveEpisodeDurationMinutes(getEpisodeContextMedia());
+        const { getDurationMinutes, refresh: refreshDurationHint } = wireDurationInput(
+            durationInput,
+            durationHint,
+            syncSubmitButton,
+            { getEpisodeDurationMinutes },
+        );
+        const episodeEditButton = overlay.querySelector<HTMLButtonElement>('#activity-episode-edit')!;
+        const episodeStepper = wireEpisodeStepper({
+            field: overlay.querySelector<HTMLElement>('#activity-episode-field')!,
+            decrementButton: overlay.querySelector<HTMLButtonElement>('#activity-episode-decrement')!,
+            incrementButton: overlay.querySelector<HTMLButtonElement>('#activity-episode-increment')!,
+            countInput: overlay.querySelector<HTMLInputElement>('#activity-episode-count')!,
+            episodeDurationLabel: overlay.querySelector<HTMLElement>('#activity-episode-duration-value')!,
+        }, durationInput, getEpisodeDurationMinutes);
+        const refreshEpisodeContext = () => {
+            const isEpisodic = getEpisodeDurationMinutes() !== null;
+            durationInput.placeholder = isEpisodic ? EPISODE_DURATION_INPUT_PLACEHOLDER : DURATION_INPUT_PLACEHOLDER;
+            durationInput.title = isEpisodic ? EPISODE_DURATION_INPUT_TOOLTIP : DURATION_INPUT_TOOLTIP;
+            refreshDurationHint();
+            episodeStepper.refresh();
+            syncSubmitButton();
+        };
+        episodeEditButton.addEventListener('click', async () => {
+            const media = getEpisodeContextMedia();
+            if (!media) return;
+            const outcome = await setEpisodeDurationOverride(media);
+            if (outcome.committed && outcome.updatedMedia) {
+                hasSavedMediaChange = true;
+                mediaById.set(media.id, { ...outcome.updatedMedia, id: media.id });
+                refreshEpisodeContext();
+            }
+            episodeEditButton.focus();
+        });
         wireDigitsOnlyInput(charactersInput);
         charactersInput.addEventListener('input', syncSubmitButton);
         titleInput.addEventListener('input', syncSubmitButton);
-        syncSubmitButton();
+        refreshEpisodeContext();
 
         const suggestionList = overlay.querySelector<HTMLElement>('#activity-media-suggestions')!;
         const activityTypeSelect = overlay.querySelector<HTMLSelectElement>('#activity-type')!;
@@ -477,8 +535,8 @@ export async function showLogActivityModal(prefillMediaId?: number, editLog?: Ac
         const selectMedia = (media: Media & { id: number }) => {
             selectedMediaId = media.id;
             titleInput.value = media.title;
-            syncSubmitButton();
             syncSelectedMediaContext(media, true);
+            refreshEpisodeContext();
             hideSuggestions();
             titleInput.focus({ preventScroll: true });
         };
@@ -579,6 +637,7 @@ export async function showLogActivityModal(prefillMediaId?: number, editLog?: Ac
             titleInput.addEventListener('input', () => {
                 selectedMediaId = null;
                 syncSelectedMediaContext(undefined, false);
+                refreshEpisodeContext();
                 renderSuggestions();
             });
             titleInput.addEventListener('blur', () => {

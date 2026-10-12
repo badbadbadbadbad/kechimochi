@@ -6,7 +6,9 @@ import { EVENTS, EXTRA_FIELD_LABELS, MEDIA_STATUS } from '../constants';
 import { getReadingSpeedFromExtraData, normalizeExtraData, removeExtraDataKey, upsertExtraDataValue } from '../extra_data';
 import { isReadingContentType } from '../stats/reading_speed';
 import { Logger } from '../logger';
+import { formatCompactDuration } from '../time';
 import { showReadingSpeedOverrideModal } from './reading_speed_modal';
+import { getEpisodeDurationOverride, isEpisodicMedia, showEpisodeDurationOverrideModal } from './episodes';
 
 const COMPLETE_TRACKING_STATUS = 'Complete';
 
@@ -30,6 +32,10 @@ export function canMarkComplete(media: Media): boolean {
 
 export function canSetReadingSpeedOverride(media: Media): boolean {
     return isReadingContentType(media.content_type || '');
+}
+
+export function canSetEpisodeDurationOverride(media: Media): boolean {
+    return isEpisodicMedia(media);
 }
 
 function readExtraData(media: Media): Record<string, string> {
@@ -148,6 +154,20 @@ export async function setReadingSpeedOverride(media: Media): Promise<MediaAction
     const nextExtraData = choice.charactersPerHour === null
         ? removeExtraDataKey(extraData, EXTRA_FIELD_LABELS.READING_SPEED)
         : upsertExtraDataValue(extraData, EXTRA_FIELD_LABELS.READING_SPEED, String(choice.charactersPerHour));
+
+    return persistMediaUpdate({ ...media, extra_data: JSON.stringify(nextExtraData) });
+}
+
+export async function setEpisodeDurationOverride(media: Media): Promise<MediaActionOutcome> {
+    if (!canSetEpisodeDurationOverride(media)) return { committed: false };
+
+    const choice = await showEpisodeDurationOverrideModal(media.title, getEpisodeDurationOverride(media));
+    if (choice === null) return { committed: false };
+
+    const extraData = readExtraData(media);
+    const nextExtraData = choice.episodeDurationMinutes === null
+        ? removeExtraDataKey(extraData, EXTRA_FIELD_LABELS.EPISODE_DURATION)
+        : upsertExtraDataValue(extraData, EXTRA_FIELD_LABELS.EPISODE_DURATION, formatCompactDuration(choice.episodeDurationMinutes));
 
     return persistMediaUpdate({ ...media, extra_data: JSON.stringify(nextExtraData) });
 }
