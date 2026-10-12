@@ -474,7 +474,7 @@ export async function showLogActivityModal(prefillMediaId?: number, editLog?: Ac
         const getEpisodeContextMedia = (): (Media & { id: number }) | undefined => {
             if (editLog) return mediaById.get(editLog.media_id);
             const media = selectedMediaId === null ? undefined : mediaById.get(selectedMediaId);
-            return media && titleInput.value.trim() === media.title ? media : undefined;
+            return media?.title === titleInput.value.trim() ? media : undefined;
         };
         const getEpisodeDurationMinutes = () => resolveEpisodeDurationMinutes(getEpisodeContextMedia());
         const { getDurationMinutes, refresh: refreshDurationHint } = wireDurationInput(
