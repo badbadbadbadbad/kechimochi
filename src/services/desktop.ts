@@ -185,8 +185,8 @@ export class DesktopServices implements AppServices {
         return invoke('save_local_http_api_config', { config });
     }
 
-    async getAppVersion(): Promise<string> {
-        return getBuildVersion();
+    getAppVersion(): Promise<string> {
+        return Promise.resolve(getBuildVersion());
     }
 
     // ── File-based operations ─────────────────────────────────────────────────

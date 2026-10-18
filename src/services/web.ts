@@ -453,12 +453,12 @@ export class WebServices implements AppServices {
         return res.path;
     }
 
-    async loadCoverImage(coverRef: string): Promise<string | null> {
-        if (!coverRef || coverRef.trim() === '') return null;
+    loadCoverImage(coverRef: string): Promise<string | null> {
+        if (!coverRef || coverRef.trim() === '') return Promise.resolve(null);
         // Extract filename from the absolute path stored in the DB
         const filename = coverRef.split(/[\\/]/).pop();
-        if (!filename) return null;
-        return `${API_BASE}/api/covers/file/${encodeURIComponent(filename)}`;
+        if (!filename) return Promise.resolve(null);
+        return Promise.resolve(`${API_BASE}/api/covers/file/${encodeURIComponent(filename)}`);
     }
 
     // ── External network ──────────────────────────────────────────────────────

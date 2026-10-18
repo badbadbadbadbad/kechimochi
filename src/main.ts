@@ -317,7 +317,7 @@ export class App {
         await this.switchView(this.currentView);
         // Restoring Android's Google authorization can require a network call.
         // Keep the local library usable while the sync status is loading.
-        this.refreshSyncChrome();
+        this.refreshSyncChrome().catch(error => Logger.error('Failed to refresh sync status', error));
         this.setBootState(APP_BOOT_STATES.READY);
 
         try {
@@ -342,7 +342,7 @@ export class App {
         this.navLinks.forEach(link => {
             link.addEventListener('click', () => {
                 const view = link.dataset.view as ViewType;
-                if (view) this.switchView(view);
+                if (view) this.switchView(view).catch(error => Logger.error('Failed to switch view', error));
             });
         });
 
@@ -387,9 +387,9 @@ export class App {
                     this.switchView(VIEW_NAMES.MEDIA, {
                         mediaId: detail.focusMediaId,
                         source: detail.source,
-                    });
+                    }).catch(error => Logger.error('Failed to switch view', error));
                 } else if (detail.view === VIEW_NAMES.DASHBOARD) {
-                    this.switchView(VIEW_NAMES.DASHBOARD);
+                    this.switchView(VIEW_NAMES.DASHBOARD).catch(error => Logger.error('Failed to switch view', error));
                 }
             }
         });
