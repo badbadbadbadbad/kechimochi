@@ -1,5 +1,6 @@
 import { EXTRA_FIELD_LABELS } from './constants';
 import { parseDuration } from './time/duration_parsing';
+import type { Media } from './types';
 
 export function findExtraDataKey(extraData: Record<string, string>, key: string): string | undefined {
     const normalizedKey = key.toLowerCase();
@@ -53,6 +54,14 @@ export function normalizeExtraData(extraData: unknown): Record<string, string> {
     }
 
     return normalized;
+}
+
+export function readMediaExtraData(media: Pick<Media, 'extra_data'>): Record<string, string> {
+    try {
+        return normalizeExtraData(JSON.parse(media.extra_data || '{}'));
+    } catch {
+        return normalizeExtraData({});
+    }
 }
 
 export function upsertExtraDataValue(extraData: Record<string, string>, key: string, value: string): Record<string, string> {

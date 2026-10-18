@@ -345,7 +345,7 @@ describe('activity_modal date scope picker', () => {
 
             dateTrigger().click();
 
-            const dateModal = document.querySelector('.activity-date-modal-content')!;
+            const dateModal = document.querySelector('[role="dialog"][aria-label="Date"]')!;
             expect(dateModal.contains(datePanel())).toBe(true);
             expect(datePanel().hidden).toBe(false);
             pickCell('date', '2026-06-10');

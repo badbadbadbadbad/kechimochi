@@ -3,7 +3,7 @@ import { showLogActivityModal } from '../activity_modal';
 import { showAddMilestoneModal } from '../milestone_modal';
 import { customAlert, customConfirm, customPrompt } from '../modal_base';
 import { EVENTS, EXTRA_FIELD_LABELS, MEDIA_STATUS } from '../constants';
-import { getReadingSpeedFromExtraData, normalizeExtraData, removeExtraDataKey, upsertExtraDataValue } from '../extra_data';
+import { getReadingSpeedFromExtraData, readMediaExtraData, removeExtraDataKey, upsertExtraDataValue } from '../extra_data';
 import { isReadingContentType } from '../stats/reading_speed';
 import { Logger } from '../logger';
 import { formatCompactDuration } from '../time';
@@ -36,14 +36,6 @@ export function canSetReadingSpeedOverride(media: Media): boolean {
 
 export function canSetEpisodeDurationOverride(media: Media): boolean {
     return isEpisodicMedia(media);
-}
-
-function readExtraData(media: Media): Record<string, string> {
-    try {
-        return normalizeExtraData(JSON.parse(media.extra_data || '{}'));
-    } catch {
-        return {};
-    }
 }
 
 function buildMediaVariant(source: Media, variant: string): Media {
@@ -147,7 +139,7 @@ export async function createMediaVariant(media: Media, mediaList: Media[]): Prom
 export async function setReadingSpeedOverride(media: Media): Promise<MediaActionOutcome> {
     if (!canSetReadingSpeedOverride(media)) return { committed: false };
 
-    const extraData = readExtraData(media);
+    const extraData = readMediaExtraData(media);
     const choice = await showReadingSpeedOverrideModal(media.title, getReadingSpeedFromExtraData(extraData));
     if (choice === null) return { committed: false };
 
@@ -164,7 +156,7 @@ export async function setEpisodeDurationOverride(media: Media): Promise<MediaAct
     const choice = await showEpisodeDurationOverrideModal(media.title, getEpisodeDurationOverride(media));
     if (choice === null) return { committed: false };
 
-    const extraData = readExtraData(media);
+    const extraData = readMediaExtraData(media);
     const nextExtraData = choice.episodeDurationMinutes === null
         ? removeExtraDataKey(extraData, EXTRA_FIELD_LABELS.EPISODE_DURATION)
         : upsertExtraDataValue(extraData, EXTRA_FIELD_LABELS.EPISODE_DURATION, formatCompactDuration(choice.episodeDurationMinutes));

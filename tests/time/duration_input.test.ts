@@ -62,6 +62,25 @@ describe('duration_input.ts', () => {
             expect(getDurationMinutes()).toBe(54);
         });
 
+        it('should report episodes as unrecognized when no episode duration source is wired', () => {
+            wireDurationInput(inputElement, hintElement, () => {});
+
+            setInputValue('2ep');
+            vi.advanceTimersByTime(ERROR_DELAY_MS);
+
+            expect(isShowingError()).toBe(true);
+            expect(hintElement.textContent).toContain('Unrecognized');
+        });
+
+        it('should ask for an anime when the episode duration source has none', () => {
+            wireDurationInput(inputElement, hintElement, () => {}, { getEpisodeDurationMinutes: () => null });
+
+            setInputValue('2ep');
+            vi.advanceTimersByTime(ERROR_DELAY_MS);
+
+            expect(hintElement.textContent).toBe('Pick an anime from the suggestions to log episodes.');
+        });
+
         it('should show the parsed duration hint for valid input', () => {
             const { getDurationMinutes } = wireDurationInput(inputElement, hintElement, () => {});
 

@@ -21,7 +21,8 @@ const ERROR_MESSAGE_BY_FAILURE: Record<DurationParseFailure['status'], string> =
     episodeDurationUnknown: DURATION_HINT_EPISODE_DURATION_UNKNOWN_TEXT,
 };
 
-function errorMessageFor(failure: DurationParseFailure): string {
+function errorMessageFor(failure: DurationParseFailure, acceptsEpisodes: boolean): string {
+    if (failure.status === 'episodeDurationUnknown' && !acceptsEpisodes) return DURATION_HINT_UNRECOGNIZED_TEXT;
     return ERROR_MESSAGE_BY_FAILURE[failure.status];
 }
 
@@ -54,6 +55,7 @@ export function wireDurationInput(
     }: DurationInputOptions = {},
 ): { getDurationMinutes: () => number | null; refresh: () => void } {
     let pendingErrorTimer: ReturnType<typeof setTimeout> | undefined;
+    const acceptsEpisodes = getEpisodeDurationMinutes !== NO_EPISODE_DURATION;
 
     const parseCurrentValue = () => parseDuration(inputElement.value, getEpisodeDurationMinutes());
 
@@ -88,7 +90,7 @@ export function wireDurationInput(
             return;
         }
 
-        const errorMessage = errorMessageFor(result);
+        const errorMessage = errorMessageFor(result, acceptsEpisodes);
         pendingErrorTimer = setTimeout(() => showError(errorMessage), DURATION_ERROR_DELAY_MS);
     };
 
@@ -98,7 +100,7 @@ export function wireDurationInput(
         const result = parseCurrentValue();
         if (result.status === 'parsed') return;
 
-        showError(errorMessageFor(result));
+        showError(errorMessageFor(result, acceptsEpisodes));
     };
 
     inputElement.addEventListener('input', () => {

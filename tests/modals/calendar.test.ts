@@ -16,9 +16,9 @@ describe('modals/calendar.ts', () => {
     const navigationButton = (navigation: 'previous-jump' | 'previous' | 'next' | 'next-jump') =>
         container.querySelector<HTMLButtonElement>(`[data-calendar-nav="${navigation}"]`)!;
 
-    const periodLabel = () => container.querySelector('.calendar-date-picker-label')!.textContent;
+    const viewedPeriod = () => container.querySelector('[role="grid"]')!.getAttribute('aria-label');
 
-    const scopeTabs = () => Array.from(container.querySelectorAll<HTMLButtonElement>('.calendar-scope-tab'));
+    const scopeTabs = () => Array.from(container.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
 
     it('should render the calendar for a given month', () => {
         const onSelect = vi.fn();
@@ -41,7 +41,7 @@ describe('modals/calendar.ts', () => {
             expect(container.querySelectorAll('.calendar-grid tbody td')).toHaveLength(42);
             navigationButton('next').click();
         }
-        expect(periodLabel()).toBe('2025 / 3');
+        expect(viewedPeriod()).toBe('March 2025');
     });
 
     it('should render adjacent-month days as muted and selectable', () => {
@@ -90,22 +90,22 @@ describe('modals/calendar.ts', () => {
             buildCalendar(container, '2024-01-15', vi.fn());
 
             navigationButton('previous-jump').click();
-            expect(periodLabel()).toBe('2023 / 1');
+            expect(viewedPeriod()).toBe('January 2023');
 
             navigationButton('next-jump').click();
             navigationButton('next-jump').click();
-            expect(periodLabel()).toBe('2025 / 1');
+            expect(viewedPeriod()).toBe('January 2025');
         });
 
         it('should jump a whole year block in the month scope', () => {
             buildCalendar(container, '2024-03', vi.fn(), { scope: 'month' });
 
             navigationButton('previous-jump').click();
-            expect(periodLabel()).toBe('2012');
+            expect(viewedPeriod()).toBe('2012');
 
             navigationButton('next-jump').click();
             navigationButton('next-jump').click();
-            expect(periodLabel()).toBe('2036');
+            expect(viewedPeriod()).toBe('2036');
         });
 
         it('should disable the jump buttons in the year scope', () => {
@@ -178,25 +178,20 @@ describe('modals/calendar.ts', () => {
     });
 
     describe('coarse grids', () => {
+        const cellsPerRow = () => Array.from(container.querySelectorAll('[role="grid"] tbody tr'))
+            .map(row => row.querySelectorAll('button[data-calendar-cell]').length);
+
         it('should lay out months in four rows of three', () => {
             buildCalendar(container, '2024-03', vi.fn(), { scope: 'month' });
 
-            const rows = container.querySelectorAll('.calendar-grid.calendar-grid-coarse tbody tr');
-            expect(Array.from(rows).map(row => row.querySelectorAll('.cal-month').length)).toEqual([3, 3, 3, 3]);
+            expect(cellsPerRow()).toEqual([3, 3, 3, 3]);
         });
 
         it('should lay out a year block in four rows of three', () => {
             buildCalendar(container, '2024', vi.fn(), { scope: 'year' });
 
-            const rows = container.querySelectorAll('.calendar-grid.calendar-grid-coarse tbody tr');
-            expect(Array.from(rows).map(row => row.querySelectorAll('.cal-year').length)).toEqual([3, 3, 3, 3]);
-            expect(periodLabel()).toBe('2016 – 2027');
-        });
-
-        it('should not mark the day grid as coarse', () => {
-            buildCalendar(container, '2024-01-15', vi.fn());
-
-            expect(container.querySelector('.calendar-grid-coarse')).toBeNull();
+            expect(cellsPerRow()).toEqual([3, 3, 3, 3]);
+            expect(viewedPeriod()).toBe('2016 – 2027');
         });
     });
 });

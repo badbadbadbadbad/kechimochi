@@ -1,6 +1,6 @@
 import type { Media } from '../../types';
 import type { CONTENT_TYPES } from '../../constants';
-import { getEpisodeDurationFromExtraData, normalizeExtraData } from '../../extra_data';
+import { getEpisodeDurationFromExtraData, readMediaExtraData } from '../../extra_data';
 
 const EPISODIC_CONTENT_TYPE: typeof CONTENT_TYPES[number] = 'Anime';
 
@@ -8,14 +8,6 @@ export const DEFAULT_ANIME_EPISODE_DURATION_MINUTES = 24;
 
 export function isEpisodicMedia(media: Pick<Media, 'content_type'>): boolean {
     return media.content_type === EPISODIC_CONTENT_TYPE;
-}
-
-function readMediaExtraData(media: Pick<Media, 'extra_data'>): Record<string, string> {
-    try {
-        return normalizeExtraData(JSON.parse(media.extra_data || '{}'));
-    } catch {
-        return normalizeExtraData({});
-    }
 }
 
 export function getEpisodeDurationOverride(media: Pick<Media, 'extra_data'>): number | null {

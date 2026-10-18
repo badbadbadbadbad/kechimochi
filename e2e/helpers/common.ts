@@ -494,10 +494,11 @@ export async function selectActivityDate(date?: string): Promise<void> {
     await safeClick('#activity-date-trigger');
     await safeClick(`.cal-day[data-date="${date}"]`);
 
-    const isDateModalOpen = await $('.activity-date-modal-content').isExisting();
+    const dateModalSelector = '[role="dialog"][aria-label="Date"]';
+    const isDateModalOpen = await $(dateModalSelector).isExisting();
     if (isDateModalOpen) {
         await browser.keys('Escape');
-        await $('.activity-date-modal-content').waitForExist({ reverse: true, timeout: 3000 });
+        await $(dateModalSelector).waitForExist({ reverse: true, timeout: 3000 });
     } else {
         await safeClick('#activity-date-trigger');
     }
