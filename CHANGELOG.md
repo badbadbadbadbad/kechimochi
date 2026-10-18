@@ -14,6 +14,7 @@ The format is based on Keep a Changelog, with one section per released version.
  - Characters fields in the log and milestone modals start empty instead of 0 and accept only digits.
  - The desktop window can no longer be resized below 320x480.
  - General UIUX overhaul of the Library's header, filter pane, and sort pane.
+ - General UIUX overhaul of the nav header / footer elements.
 
 ### Fixed
  - Media details no longer show an empty stats box for media with no logged activity
