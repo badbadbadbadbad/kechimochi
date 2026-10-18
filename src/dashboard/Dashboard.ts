@@ -560,7 +560,7 @@ export class Dashboard extends Component<DashboardState> {
         const highlightsHost = this.cardHosts.get('highlights');
         if (!this.state.rangeData || !periodStatsHost || !categoriesHost || !highlightsHost) return;
 
-        const { range, isTodayInRange, categoryTotals, timeRangeDays, timeRangeOffset, weekStartDay } = computeRangeContext({
+        const { range, elapsedPeriodDays, categoryTotals, timeRangeDays, timeRangeOffset, weekStartDay } = computeRangeContext({
             rangeData: this.state.rangeData,
             timeRangeDays: this.state.chartParams.timeRangeDays,
             timeRangeOffset: this.state.chartParams.timeRangeOffset,
@@ -569,7 +569,7 @@ export class Dashboard extends Component<DashboardState> {
 
         const periodStatsState = {
             range,
-            isTodayInRange,
+            elapsedPeriodDays,
             rangeData: this.state.rangeData,
             timeRangeDays,
             timeRangeOffset,
@@ -582,7 +582,7 @@ export class Dashboard extends Component<DashboardState> {
             this.periodStatsComponent.render();
         }
 
-        const categoriesState = { categoryTotals, isTodayInRange };
+        const categoriesState = { categoryTotals, elapsedPeriodDays };
         if (this.categoriesComponent) {
             this.categoriesComponent.setState(categoriesState);
         } else {
@@ -595,7 +595,7 @@ export class Dashboard extends Component<DashboardState> {
             categoryTotals,
             validStart: range.validStart,
             validEnd: range.validEnd,
-            isTodayInRange,
+            elapsedPeriodDays,
         };
         if (this.highlightsComponent) {
             this.highlightsComponent.setState(highlightsState);
