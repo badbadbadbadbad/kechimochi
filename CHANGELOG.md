@@ -8,6 +8,7 @@ The format is based on Keep a Changelog, with one section per released version.
 
 ### Added
  - New settings in the Profile to adjust the Library's grid view in regards to border, status dot, and type label.
+ - The business card and reading report moved from the Profile to the Dashboard's Study Stats. The reading reports updates more frequently and faster.
 
 ### Changed
  - Selects now match multiselects through a forced Kechimochi theme. Mobile keeps its native picker.
