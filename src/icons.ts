@@ -16,10 +16,19 @@ export const TIMELINE = '<circle cx="6" cy="6" r="2"/><circle cx="18" cy="12" r=
 export const SYNC = '<path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15.55-6.36L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15.55 6.36L3 16"/>';
 export const CLOCK = '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>';
 export const HIRAGANA_KE = '<path d="M6.5 5c-1 4.5-1 9.5.5 14"/><path d="M10.5 9.5h9"/><path d="M15.5 4.5c.7 5.5.5 11-2 15.5"/>';
+export const STOPWATCH = '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M10 2h4"/>';
+export const PENCIL = '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>';
+export const MINUS = '<path d="M5 12h14"/>';
+export const CHEVRON_LEFT = '<path d="m15 18-6-6 6-6"/>';
+export const CHEVRON_RIGHT = '<path d="m9 18 6-6-6-6"/>';
+export const DOUBLE_CHEVRON_LEFT = '<path d="m11 17-5-5 5-5M18 17l-5-5 5-5"/>';
+export const DOUBLE_CHEVRON_RIGHT = '<path d="m6 17 5-5-5-5M13 17l5-5-5-5"/>';
 
 const ICON_VIEWBOX = '0 0 24 24';
 
-export function renderIcon(iconMarkup: string, sizePx: number): string {
+export const DEFAULT_ICON_SIZE_PX = 14;
+
+export function renderIcon(iconMarkup: string, sizePx: number = DEFAULT_ICON_SIZE_PX): string {
     return `<svg width="${sizePx}" height="${sizePx}" viewBox="${ICON_VIEWBOX}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${iconMarkup}</svg>`;
 }
 

@@ -1,7 +1,7 @@
 /**
  * Dashboard-specific helpers.
  */
-import { clickTopmostOverlayChild, confirmAction, performActivityEdit, safeClick, getTopmostVisibleOverlay, waitForNoActiveOverlays, selectActivityDate } from './common.js';
+import { clickTopmostOverlayChild, confirmAction, performActivityEdit, safeClick, getTopmostVisibleOverlay, waitForNoActiveOverlays, selectActivityDate, setActivityNotes } from './common.js';
 import { pressEnter, setText, setSelect } from './form-controls.js';
 import type { BusinessCardActionId } from '../../src/dashboard/reportcard/report_card_controls';
 
@@ -123,7 +123,7 @@ export async function logActivity(
     }
 
     if (notes !== undefined && await overlay.$('#activity-notes').isExisting()) {
-        await setText('#activity-notes', notes);
+        await setActivityNotes(notes);
     }
 
     if (date) {
@@ -138,6 +138,23 @@ export async function logActivity(
     // handle while the dashboard rerenders can itself race with Wry and become
     // stale. A prompt or alert is also a valid submission result for callers
     // that intentionally exercise those flows.
+    await waitForActivitySubmissionResult();
+}
+
+export async function logActivityWithEpisodes(title: string, episodeCount: number, date: string): Promise<void> {
+    const overlay = await openActivityFormWithAmounts(title, '', '0');
+
+    const incrementButton = overlay.$('button[aria-label="Add one episode"]');
+    await incrementButton.waitForClickable({ timeout: 5000 });
+    for (let episodeIndex = 0; episodeIndex < episodeCount; episodeIndex++) {
+        await incrementButton.click();
+    }
+
+    await selectActivityDate(date);
+
+    const submitButton = overlay.$('#add-activity-form button[type="submit"]');
+    await submitButton.waitForClickable({ timeout: 5000 });
+    await submitButton.click();
     await waitForActivitySubmissionResult();
 }
 

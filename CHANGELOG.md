@@ -10,6 +10,7 @@ The format is based on Keep a Changelog, with one section per released version.
  - New settings in the Profile to adjust the Library's grid view in regards to border, status dot, and type label.
  - The business card and reading report moved from the Profile to the Dashboard's Study Stats. The reading reports updates more frequently and faster.
  - The Dashboard's "Go immerse!" prompt grows louder the longer the current period stays empty.
+ - Anime can be logged in episodes now. The default episode length is 24 minutes (and can be overridden on a per-anime basis.)
 
 ### Changed
  - Selects now match multiselects through a forced Kechimochi theme. Mobile keeps its native picker.
@@ -19,6 +20,8 @@ The format is based on Keep a Changelog, with one section per released version.
  - General UIUX overhaul of the nav header / footer elements.
  - General UIUX overhaul of the Timeline across all zoom levels and screen sizes.
  - Dashboard heatmap now has a mobile version, shows month labels above the year grid, outlines the selected week or month, follows the selected period, and respects the week start day.
+ - The log activity modal is more compact.
+ - Date pickers can jump larger distances at a time.
 
 ### Fixed
  - Media details no longer show an empty stats box for media with no logged activity

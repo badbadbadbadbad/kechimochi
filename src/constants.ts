@@ -128,4 +128,5 @@ export const CONTENT_TYPE_TO_ACTIVITY_TYPE: Record<string, string> = {
 export const EXTRA_FIELD_LABELS = {
     CHARACTER_COUNT: 'Character count',
     READING_SPEED: 'Reading speed',
+    EPISODE_DURATION: 'Episode duration',
 } as const;
