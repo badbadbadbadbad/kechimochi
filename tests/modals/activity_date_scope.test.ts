@@ -288,7 +288,7 @@ describe('activity_modal date scope picker', () => {
             expect(datePanel().hidden).toBe(true);
         });
 
-        it('should collapse the inline date panel on Escape at the trigger', async () => {
+        it('should close the whole modal on Escape at the open date trigger', async () => {
             await openModal();
             dateTrigger().click();
             const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
@@ -296,8 +296,7 @@ describe('activity_modal date scope picker', () => {
             dateTrigger().dispatchEvent(escape);
 
             expect(escape.defaultPrevented).toBe(true);
-            expect(datePanel().hidden).toBe(true);
-            expect(dateTrigger().getAttribute('aria-expanded')).toBe('false');
+            expect(vi.mocked(createCancelableOverlay).mock.results[0].value.dismiss).toHaveBeenCalled();
         });
 
         it('should keep the focus on the newly active scope tab after switching', async () => {

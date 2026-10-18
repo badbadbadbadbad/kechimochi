@@ -14,6 +14,25 @@ function sanitizeButtonClass(input: string): string {
 
 let openOverlayCount = 0;
 let stopBlockingBackgroundScroll: (() => void) | null = null;
+const overlayStack: HTMLDivElement[] = [];
+
+function pushOverlay(overlay: HTMLDivElement): void {
+    const previousTopOverlay = overlayStack.at(-1);
+    if (previousTopOverlay) previousTopOverlay.inert = true;
+    overlayStack.push(overlay);
+}
+
+function removeOverlay(overlay: HTMLDivElement): void {
+    const index = overlayStack.indexOf(overlay);
+    if (index === -1) return;
+    overlayStack.splice(index, 1);
+    const topOverlay = overlayStack.at(-1);
+    if (topOverlay) topOverlay.inert = false;
+}
+
+function isTopmostOverlay(overlay: HTMLDivElement): boolean {
+    return overlayStack.at(-1) === overlay;
+}
 
 function blockScrollOutsideOverlays(event: Event): void {
     const target = event.target;
@@ -57,8 +76,10 @@ export function createOverlay(): { overlay: HTMLDivElement, cleanup: () => void 
     overlay.classList.add('active');
     const cleanupViewportPlacement = bindOverlayToVisualViewport(overlay);
     const restoreBackgroundScroll = suppressBackgroundScroll();
+    pushOverlay(overlay);
 
     const cleanup = () => {
+        removeOverlay(overlay);
         restoreBackgroundScroll();
         cleanupViewportPlacement();
         overlay.classList.remove('active');
@@ -246,7 +267,7 @@ export function createCancelableOverlay(onDismiss: () => void, options: { closeO
             const isFocusInLaterLayer = activeElement !== null
                 && !overlay.contains(activeElement)
                 && Boolean(overlay.compareDocumentPosition(activeElement) & Node.DOCUMENT_POSITION_FOLLOWING);
-            if (event.key === 'Escape' && activeElement?.getAttribute('aria-expanded') !== 'true' && !isFocusInLaterLayer) {
+            if (event.key === 'Escape' && isTopmostOverlay(overlay) && activeElement?.getAttribute('aria-expanded') !== 'true' && !isFocusInLaterLayer) {
                 event.preventDefault();
                 event.stopPropagation();
                 dismiss();

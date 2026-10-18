@@ -432,9 +432,9 @@ export async function showLogActivityModal(prefillMediaId?: number, editLog?: Ac
             setDatePanelExpanded(datePanel.hidden);
         });
         dateTrigger.addEventListener('keydown', (event) => {
-            if (event.key !== 'Escape' || datePanel.hidden || closeDateModal) return;
+            if (event.key !== 'Escape' || datePanel.hidden) return;
             event.preventDefault();
-            setDatePanelExpanded(false);
+            dismiss();
         });
 
         const notesToggle = overlay.querySelector<HTMLButtonElement>('#activity-notes-toggle')!;
