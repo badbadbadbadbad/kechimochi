@@ -167,21 +167,6 @@ describe('modals/base.ts', () => {
             expect(allowed.defaultPrevented).toBe(false);
         });
 
-        it('should let a sheet panel scroll while an overlay is open', () => {
-            const { cleanup } = base.createOverlay();
-            const sheetPanel = document.createElement('div');
-            sheetPanel.className = 'sheet-panel';
-            sheetPanel.innerHTML = '<button type="button">Inside</button>';
-            document.body.appendChild(sheetPanel);
-
-            const event = new WheelEvent('wheel', { bubbles: true, cancelable: true });
-            sheetPanel.querySelector('button')!.dispatchEvent(event);
-
-            expect(event.defaultPrevented).toBe(false);
-            cleanup();
-            sheetPanel.remove();
-        });
-
         it('should still let the overlay scroll its own content', () => {
             const { overlay, cleanup } = base.createOverlay();
             overlay.innerHTML = '<div class="modal-content"></div>';

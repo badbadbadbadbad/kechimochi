@@ -115,6 +115,7 @@ describe('modals/activity.ts', () => {
                 setValue: vi.fn(),
                 getViewAnchor: () => initialDate as DateAnchor,
                 focus: vi.fn(),
+                focusScopeTab: vi.fn(),
                 destroy: vi.fn(),
             };
         });
@@ -704,6 +705,7 @@ describe('modals/activity.ts', () => {
                     setValue: vi.fn(),
                     getViewAnchor: () => initialDate as DateAnchor,
                     focus: vi.fn(),
+                    focusScopeTab: vi.fn(),
                     destroy: vi.fn(),
                 };
             });

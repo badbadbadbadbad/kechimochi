@@ -17,7 +17,7 @@ let stopBlockingBackgroundScroll: (() => void) | null = null;
 
 function blockScrollOutsideOverlays(event: Event): void {
     const target = event.target;
-    if (target instanceof Element && target.closest('.modal-overlay, .sheet-panel')) return;
+    if (target instanceof Element && target.closest('.modal-overlay')) return;
     event.preventDefault();
 }
 

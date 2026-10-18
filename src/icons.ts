@@ -8,6 +8,10 @@ export const GAUGE = '<path d="M3 18a9 9 0 0 1 18 0"/><path d="M12 18l4.5-5.5"/>
 export const STOPWATCH = '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M10 2h4"/>';
 export const PENCIL = '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>';
 export const MINUS = '<path d="M5 12h14"/>';
+export const CHEVRON_LEFT = '<path d="m15 18-6-6 6-6"/>';
+export const CHEVRON_RIGHT = '<path d="m9 18 6-6-6-6"/>';
+export const DOUBLE_CHEVRON_LEFT = '<path d="m11 17-5-5 5-5M18 17l-5-5 5-5"/>';
+export const DOUBLE_CHEVRON_RIGHT = '<path d="m6 17 5-5-5-5M13 17l5-5-5-5"/>';
 export const WIDGET_GRID = '<rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1" opacity="0.35"/>';
 
 const ICON_VIEWBOX = '0 0 24 24';

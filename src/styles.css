@@ -15,6 +15,7 @@
   --chevron-stroke-width: 0.1rem;
   --field-padding-inline: 0.75rem;
   --chevron-right-offset: 0.875rem;
+  --icon-button-size-small: 1.5rem;
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
@@ -649,6 +650,29 @@ a {
   color: var(--text-primary);
 }
 
+.btn-outline {
+  background-color: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.btn-outline:hover:not(:disabled) {
+  background-color: var(--bg-card-hover);
+}
+
+.btn.btn-icon-small {
+  flex-shrink: 0;
+  width: var(--icon-button-size-small);
+  height: var(--icon-button-size-small);
+  padding: 0;
+  border-radius: var(--radius-sm);
+}
+
+.btn.btn-icon-small:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 1px;
+}
+
 /* Layout Classes */
 #app {
   display: flex;
@@ -966,7 +990,7 @@ input:focus {
 }
 
 .inline-action-field {
-  --inline-action-button-size: 1.5rem;
+  --inline-action-button-size: var(--icon-button-size-small);
   --inline-action-input-padding-block: 0.5rem;
   display: flex;
   align-items: center;
@@ -1015,8 +1039,8 @@ input:focus {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: var(--inline-action-button-size);
-  height: var(--inline-action-button-size);
+  width: var(--icon-button-size-small);
+  height: var(--icon-button-size-small);
   padding: 0;
   border: none;
   border-radius: var(--radius-sm);
@@ -4859,16 +4883,14 @@ input:checked + .slider:before {
 }
 
 .activity-date-panel {
-  --activity-date-panel-gap: 0.75rem;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--activity-date-panel-gap);
 }
 
-.sheet-panel > .activity-date-panel {
-  flex-direction: column-reverse;
-  padding-block: calc(var(--activity-date-panel-gap) - var(--sheet-panel-padding-block));
+.activity-date-modal-content {
+  width: auto;
+  padding: 1.25rem;
 }
 
 .activity-date-panel[hidden] {

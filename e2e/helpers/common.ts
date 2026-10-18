@@ -494,12 +494,10 @@ export async function selectActivityDate(date?: string): Promise<void> {
     await safeClick('#activity-date-trigger');
     await safeClick(`.cal-day[data-date="${date}"]`);
 
-    const isSheetOpen = await $('.sheet-panel').isExisting();
-    if (isSheetOpen) {
-        await browser.execute(() => {
-            (document.querySelector('.sheet-scrim') as HTMLElement | null)?.click();
-        });
-        await $('.sheet-panel').waitForExist({ reverse: true, timeout: 3000 });
+    const isDateModalOpen = await $('.activity-date-modal-content').isExisting();
+    if (isDateModalOpen) {
+        await browser.keys('Escape');
+        await $('.activity-date-modal-content').waitForExist({ reverse: true, timeout: 3000 });
     } else {
         await safeClick('#activity-date-trigger');
     }

@@ -12,7 +12,7 @@ import {
 } from './api';
 import { ACTIVITY_TYPES, SETTING_KEYS } from './constants';
 import { buildCalendar, normalizeWeekStartDay, YEAR_BLOCK_SIZE, type DatePicker } from './calendar';
-import { isSheetLayout, openSheet, type SheetHandle } from './popups';
+import { SHEET_LAYOUT_MEDIA_QUERY } from './popups';
 import { customPrompt, customAlert, createCancelableOverlay } from './modal_base';
 import { Logger } from './logger';
 import { escapeHTML, escapeAttribute } from './html';
@@ -26,7 +26,6 @@ import {
     formatLogDateRelativeTo,
     formatReducedDate,
     isContainedInBucket,
-    isDateScope,
     logDateKey,
     precisionKeyLength,
     type DateAnchor,
@@ -45,11 +44,7 @@ import { FORK, MINUS, PENCIL, PLUS, renderIcon } from './icons';
 
 type ActivityType = typeof ACTIVITY_TYPES[number];
 
-const DATE_SCOPE_OPTIONS: readonly { scope: DateScope; label: string }[] = [
-    { scope: 'day', label: 'Day' },
-    { scope: 'month', label: 'Month' },
-    { scope: 'year', label: 'Year' },
-];
+const DATE_SCOPES: readonly DateScope[] = ['day', 'month', 'year'];
 
 const pad = (n: number) => n.toString().padStart(2, '0');
 const getTodayStr = (): DateAnchor => {
@@ -210,13 +205,13 @@ export async function showLogActivityModal(prefillMediaId?: number, editLog?: Ac
         const baseHandle = createCancelableOverlay(() => resolve(hasSavedMediaChange), { closeOnEscape: true });
         const { overlay } = baseHandle;
         let suggestionHideTimer: ReturnType<typeof globalThis.setTimeout> | null = null;
-        let dateSheet: SheetHandle | null = null;
+        let closeDateModal: (() => void) | null = null;
         const cleanup = () => {
             if (suggestionHideTimer) {
                 globalThis.clearTimeout(suggestionHideTimer);
                 suggestionHideTimer = null;
             }
-            dateSheet?.close();
+            closeDateModal?.();
             baseHandle.cleanup();
         };
         const dismiss = () => {
@@ -224,7 +219,7 @@ export async function showLogActivityModal(prefillMediaId?: number, editLog?: Ac
                 globalThis.clearTimeout(suggestionHideTimer);
                 suggestionHideTimer = null;
             }
-            dateSheet?.close();
+            closeDateModal?.();
             baseHandle.dismiss();
         };
         const activeMedia = mediaList.filter(m => m.status !== 'Archived' && m.tracking_status === 'Ongoing');
@@ -302,9 +297,6 @@ export async function showLogActivityModal(prefillMediaId?: number, editLog?: Ac
                     </div>
                     <div id="activity-date-slot" class="activity-date-slot">
                         <div id="activity-date-panel" class="activity-date-panel" hidden>
-                            <div class="toggle" role="group" aria-label="Date scope">
-                                ${DATE_SCOPE_OPTIONS.map(option => `<button type="button" class="toggle-option ${option.scope === initialScope ? 'is-active' : ''}" data-date-scope="${option.scope}" aria-pressed="${option.scope === initialScope}">${option.label}</button>`).join('')}
-                            </div>
                             <div id="activity-date-picker-content" class="activity-date-picker-content"></div>
                         </div>
                     </div>
@@ -333,7 +325,6 @@ export async function showLogActivityModal(prefillMediaId?: number, editLog?: Ac
         const datePanel = overlay.querySelector<HTMLElement>('#activity-date-panel')!;
         const dateTrigger = overlay.querySelector<HTMLButtonElement>('#activity-date-trigger')!;
         const dateTriggerValue = overlay.querySelector<HTMLElement>('#activity-date-trigger-value')!;
-        const dateScopeButtons = Array.from(overlay.querySelectorAll<HTMLButtonElement>('[data-date-scope]'));
 
         const handlePick = (value: DateAnchor): void => {
             selectedDate = value;
@@ -384,7 +375,7 @@ export async function showLogActivityModal(prefillMediaId?: number, editLog?: Ac
                 nextContent.querySelector<HTMLElement>('#activity-cal-container')!,
                 logDateKey({ date: selectedDate, date_precision: scope }),
                 (picked) => handlePick(canonicalAnchor(picked, scope)),
-                { scope, weekStartDay, viewAnchor },
+                { scope, scopes: DATE_SCOPES, onScopeSelect: switchDateScope, weekStartDay, viewAnchor },
             );
 
             activeDatePicker?.destroy();
@@ -395,56 +386,53 @@ export async function showLogActivityModal(prefillMediaId?: number, editLog?: Ac
             if (shouldFocus) activeDatePicker.focus();
         };
 
-        mountDatePicker(false);
-
-        for (const dateScopeButton of dateScopeButtons) {
-            dateScopeButton.addEventListener('click', () => {
-                const nextScope = dateScopeButton.dataset.dateScope;
-                if (!isDateScope(nextScope) || nextScope === scope) return;
-                for (const otherButton of dateScopeButtons) {
-                    const isActive = otherButton === dateScopeButton;
-                    otherButton.classList.toggle('is-active', isActive);
-                    otherButton.setAttribute('aria-pressed', String(isActive));
-                }
-                const nextValue = lastPick?.scope === nextScope
-                    ? lastPick.value
-                    : deriveAnchorForScope(nextScope);
-                const nextViewAnchor = isSelectionInView() ? nextValue : activeDatePicker?.getViewAnchor();
-                scope = nextScope;
-                selectedDate = nextValue;
-                mountDatePicker(false, nextViewAnchor);
-            });
+        function switchDateScope(nextScope: DateScope): void {
+            const nextValue = lastPick?.scope === nextScope
+                ? lastPick.value
+                : deriveAnchorForScope(nextScope);
+            const nextViewAnchor = isSelectionInView() ? nextValue : activeDatePicker?.getViewAnchor();
+            scope = nextScope;
+            selectedDate = nextValue;
+            mountDatePicker(false, nextViewAnchor);
+            activeDatePicker?.focusScopeTab();
         }
+
+        mountDatePicker(false);
 
         const setDatePanelExpanded = (isExpanded: boolean): void => {
             datePanel.hidden = !isExpanded;
             dateTrigger.setAttribute('aria-expanded', String(isExpanded));
         };
 
-        const openDateSheet = (): void => {
+        const isDateModalLayout = (): boolean => globalThis.matchMedia?.(SHEET_LAYOUT_MEDIA_QUERY).matches ?? false;
+
+        const openDateModal = (): void => {
+            const layoutQuery = globalThis.matchMedia?.(SHEET_LAYOUT_MEDIA_QUERY) ?? null;
+            const dateModalHandle = createCancelableOverlay(() => {
+                layoutQuery?.removeEventListener?.('change', closeOnLayoutChange);
+                closeDateModal = null;
+                dateSlot.appendChild(datePanel);
+                setDatePanelExpanded(false);
+                dateTrigger.focus();
+            }, { closeOnEscape: true });
+            const closeOnLayoutChange = () => dateModalHandle.dismiss();
+            dateModalHandle.overlay.innerHTML = '<div class="modal-content activity-date-modal-content" role="dialog" aria-modal="true" aria-label="Date"></div>';
+            dateModalHandle.overlay.querySelector('.activity-date-modal-content')!.appendChild(datePanel);
+            layoutQuery?.addEventListener?.('change', closeOnLayoutChange);
+            closeDateModal = () => dateModalHandle.dismiss();
             setDatePanelExpanded(true);
-            dateSheet = openSheet({
-                content: datePanel,
-                label: 'Date',
-                returnFocusTo: dateTrigger,
-                onClose: () => {
-                    dateSheet = null;
-                    dateSlot.appendChild(datePanel);
-                    setDatePanelExpanded(false);
-                },
-            });
             activeDatePicker?.focus();
         };
 
         dateTrigger.addEventListener('click', () => {
-            if (isSheetLayout()) {
-                openDateSheet();
+            if (isDateModalLayout()) {
+                openDateModal();
                 return;
             }
             setDatePanelExpanded(datePanel.hidden);
         });
         dateTrigger.addEventListener('keydown', (event) => {
-            if (event.key !== 'Escape' || datePanel.hidden || dateSheet) return;
+            if (event.key !== 'Escape' || datePanel.hidden || closeDateModal) return;
             event.preventDefault();
             setDatePanelExpanded(false);
         });
